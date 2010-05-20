@@ -81,7 +81,7 @@ if (!class_exists('PcreException', FALSE)) {
 	}
 }
 
-if (!interface_exists(/**/'Nette\\'./**/.'IDebugPanel', FALSE)) {
+if (!interface_exists(/**/'Nette\\'./**/'IDebugPanel', FALSE)) {
 	require_once dirname(__FILE__) . '/Nette/IDebugPanel.php';
 }
 
