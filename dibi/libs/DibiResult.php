@@ -236,6 +236,9 @@ class DibiResult extends DibiObject implements IDataSource
 			}
 		}
 
+        if (is_callable($this->rowClass)) {
+            return call_user_func($this->rowClass, $row);
+        }
 		return new $this->rowClass($row);
 	}
 
