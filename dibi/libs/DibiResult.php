@@ -476,7 +476,7 @@ class DibiResult extends DibiObject implements IDataSource
 			$value = $tmp[1];
 
 		} else {
-			if (!property_exists($row, $value)) {
+			if (!property_exists($row, $value) && !isset($row[$value])) {
 				throw new InvalidArgumentException("Unknown value column '$value'.");
 			}
 
@@ -487,7 +487,7 @@ class DibiResult extends DibiObject implements IDataSource
 				return $data;
 			}
 
-			if (!property_exists($row, $key)) {
+			if (!property_exists($row, $key) && !isset($row[$key])) {
 				throw new InvalidArgumentException("Unknown key column '$key'.");
 			}
 		}
