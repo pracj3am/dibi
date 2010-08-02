@@ -550,7 +550,8 @@ final class DibiTranslator extends DibiObject
 		if ($matches[8]) { // SQL identifier substitution
 			$m = substr($matches[8], 0, -1);
 			$m = isset(dibi::$substs[$m]) ? dibi::$substs[$m] : call_user_func(dibi::$substFallBack, $m);
-			return $matches[9] == '' ? $this->formatValue($m, FALSE) : $m . $matches[9]; // value or identifier
+			$pair = explode('%', $m, 2); // split into substituent & modifier
+			return $matches[9] == '' ? $this->formatValue($pair[0], isset($pair[1]) ? $pair[1] : FALSE) : $m . $matches[9]; // value or identifier
 		}
 
 		die('this should be never executed');
@@ -596,7 +597,9 @@ final class DibiTranslator extends DibiObject
 	private static function subCb($m)
 	{
 		$m = $m[1];
-		return isset(dibi::$substs[$m]) ? dibi::$substs[$m] : call_user_func(dibi::$substFallBack, $m);
+		$m = isset(dibi::$substs[$m]) ? dibi::$substs[$m] : call_user_func(dibi::$substFallBack, $m);
+		$pair = explode('%', $m, 2); // split into substituent & modifier
+		return $pair[0]; //modifier has no purpose in this context
 	}
 
 }
