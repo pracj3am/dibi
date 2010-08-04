@@ -476,24 +476,24 @@ class DibiResult extends DibiObject implements IDataSource
 			$value = $tmp[1];
 
 		} else {
-			if (!property_exists($row, $value) && !isset($row[$value])) {
+			if (!property_exists($row, $value) && !isset($row->$value)) {
 				throw new InvalidArgumentException("Unknown value column '$value'.");
 			}
 
 			if ($key === NULL) { // indexed-array
 				do {
-					$data[] = $row[$value];
+					$data[] = $row->$value;
 				} while ($row = $this->fetch());
 				return $data;
 			}
 
-			if (!property_exists($row, $key) && !isset($row[$key])) {
+			if (!property_exists($row, $key) && !isset($row->$key)) {
 				throw new InvalidArgumentException("Unknown key column '$key'.");
 			}
 		}
 
 		do {
-			$data[ $row[$key] ] = $row[$value];
+			$data[ $row->$key ] = $row->$value;
 		} while ($row = $this->fetch());
 
 		return $data;
