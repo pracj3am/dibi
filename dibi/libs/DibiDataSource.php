@@ -29,16 +29,16 @@ class DibiDataSource extends DibiObject implements IDataSource
 	private $connection;
 
 	/** @var string */
-	private $sql;
+	protected $sql;
 
 	/** @var DibiResult */
-	private $result;
+	protected $result;
 
 	/** @var int */
-	private $count;
+	protected $count;
 
 	/** @var int */
-	private $totalCount;
+	protected $totalCount;
 
 	/** @var array */
 	private $cols = array();
