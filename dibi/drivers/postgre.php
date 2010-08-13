@@ -14,19 +14,19 @@
 /**
  * The dibi driver for PostgreSQL database.
  *
- * Connection options:
- *   - 'host','hostaddr','port','dbname','user','password','connect_timeout','options','sslmode','service' - see PostgreSQL API
- *   - 'string' - or use connection string
- *   - 'persistent' - try to find a persistent link?
- *   - 'charset' - character encoding to set
- *   - 'schema' - the schema search path
- *   - 'lazy' - if TRUE, connection will be established only when required
- *   - 'resource' - connection resource (optional)
+ * Driver options:
+ *   - host, hostaddr, port, dbname, user, password, connect_timeout, options, sslmode, service => see PostgreSQL API
+ *   - string => or use connection string
+ *   - schema => the schema search path
+ *   - charset => character encoding to set (default is utf8)
+ *   - persistent (bool) => try to find a persistent link?
+ *   - resource (resource) => existing connection resource
+ *   - lazy, profiler, result, substitutes, ... => see DibiConnection options
  *
  * @copyright  Copyright (c) 2005, 2010 David Grudl
  * @package    dibi\drivers
  */
-class DibiPostgreDriver extends DibiObject implements IDibiDriver, IDibiReflector
+class DibiPostgreDriver extends DibiObject implements IDibiDriver, IDibiResultDriver, IDibiReflector
 {
 	/** @var resource  Connection resource */
 	private $connection;
@@ -62,6 +62,7 @@ class DibiPostgreDriver extends DibiObject implements IDibiDriver, IDibiReflecto
 			$this->connection = $config['resource'];
 
 		} else {
+			if (!isset($config['charset'])) $config['charset'] = 'utf8';
 			if (isset($config['string'])) {
 				$string = $config['string'];
 			} else {
@@ -119,8 +120,7 @@ class DibiPostgreDriver extends DibiObject implements IDibiDriver, IDibiReflecto
 	/**
 	 * Executes the SQL query.
 	 * @param  string      SQL statement.
-	 * @param  bool        update affected rows?
-	 * @return IDibiDriver|NULL
+	 * @return IDibiResultDriver|NULL
 	 * @throws DibiDriverException
 	 */
 	public function query($sql)
@@ -209,12 +209,34 @@ class DibiPostgreDriver extends DibiObject implements IDibiDriver, IDibiReflecto
 
 
 	/**
+	 * Is in transaction?
+	 * @return bool
+	 */
+	public function inTransaction()
+	{
+		return !in_array(pg_transaction_status($this->connection), array(PGSQL_TRANSACTION_UNKNOWN, PGSQL_TRANSACTION_IDLE), TRUE);
+	}
+
+
+
+	/**
 	 * Returns the connection resource.
 	 * @return mixed
 	 */
 	public function getResource()
 	{
 		return $this->connection;
+	}
+
+
+
+	/**
+	 * Returns the connection reflector.
+	 * @return IDibiReflector
+	 */
+	public function getReflector()
+	{
+		return $this;
 	}
 
 
@@ -321,7 +343,6 @@ class DibiPostgreDriver extends DibiObject implements IDibiDriver, IDibiReflecto
 	 * Fetches the row at current position and moves the internal cursor to the next position.
 	 * @param  bool     TRUE for associative array, FALSE for numeric
 	 * @return array    array on success, nonarray if no next record
-	 * @internal
 	 */
 	public function fetch($assoc)
 	{
@@ -358,7 +379,7 @@ class DibiPostgreDriver extends DibiObject implements IDibiDriver, IDibiReflecto
 	 * Returns metadata for all columns in a result set.
 	 * @return array
 	 */
-	public function getColumnsMeta()
+	public function getResultColumns()
 	{
 		$hasTable = version_compare(PHP_VERSION , '5.2.0', '>=');
 		$count = pg_num_fields($this->resultSet);

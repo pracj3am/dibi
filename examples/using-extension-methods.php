@@ -1,5 +1,7 @@
-<h1>dibi extension method example</h1>
-<pre>
+<!DOCTYPE html><link rel="stylesheet" href="data/style.css">
+
+<h1>Using Extension Methods | dibi</h1>
+
 <?php
 
 require_once 'Nette/Debug.php';
@@ -8,7 +10,7 @@ require_once '../dibi/dibi.php';
 
 dibi::connect(array(
 	'driver'   => 'sqlite',
-	'database' => 'sample.sdb',
+	'database' => 'data/sample.sdb',
 ));
 
 

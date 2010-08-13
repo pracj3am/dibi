@@ -13,7 +13,7 @@
 
 
 /**
- * dibi result-set.
+ * dibi result set.
  *
  * <code>
  * $result = dibi::query('SELECT * FROM [table]');
@@ -36,7 +36,7 @@
  * @package    dibi
  *
  * @property-read mixed $resource
- * @property-read IDibiDriver $driver
+ * @property-read IDibiResultDriver $driver
  * @property-read int $rowCount
  * @property-read DibiResultIterator $iterator
  * @property string $rowClass
@@ -44,7 +44,7 @@
  */
 class DibiResult extends DibiObject implements IDataSource
 {
-	/** @var array  IDibiDriver */
+	/** @var array  IDibiResultDriver */
 	private $driver;
 
 	/** @var array  Translate table */
@@ -65,7 +65,7 @@ class DibiResult extends DibiObject implements IDataSource
 
 
 	/**
-	 * @param  IDibiDriver
+	 * @param  IDibiResultDriver
 	 * @param  array
 	 */
 	public function __construct($driver, $config)
@@ -110,7 +110,7 @@ class DibiResult extends DibiObject implements IDataSource
 
 	/**
 	 * Safe access to property $driver.
-	 * @return IDibiDriver
+	 * @return IDibiResultDriver
 	 * @throws InvalidStateException
 	 */
 	private function getDriver()
@@ -176,13 +176,14 @@ class DibiResult extends DibiObject implements IDataSource
 
 	/**
 	 * Required by the IteratorAggregate interface.
-	 * @param  int  offset
-	 * @param  int  limit
 	 * @return DibiResultIterator
 	 */
-	final public function getIterator($offset = NULL, $limit = NULL)
+	final public function getIterator()
 	{
-		return new DibiResultIterator($this, $offset, $limit);
+		if (func_num_args()) {
+			trigger_error(__METHOD__ . ' arguments $offset & $limit have been dropped; use SQL clauses instead.', E_USER_WARNING);
+		}
+		return new DibiResultIterator($this);
 	}
 
 
@@ -650,7 +651,7 @@ class DibiResult extends DibiObject implements IDataSource
 
 
 	/**
-	 * Displays complete result-set as HTML table for debug purposes.
+	 * Displays complete result set as HTML table for debug purposes.
 	 * @return void
 	 */
 	final public function dump()

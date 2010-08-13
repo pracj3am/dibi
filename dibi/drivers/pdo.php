@@ -14,18 +14,18 @@
 /**
  * The dibi driver for PDO.
  *
- * Connection options:
- *   - 'dsn' - driver specific DSN
- *   - 'username' (or 'user')
- *   - 'password' (or 'pass')
- *   - 'options' - driver specific options array
- *   - 'resource' - PDO object (optional)
- *   - 'lazy' - if TRUE, connection will be established only when required
+ * Driver options:
+ *   - dsn => driver specific DSN
+ *   - username (or user)
+ *   - password (or pass)
+ *   - options (array) => driver specific options {@see PDO::__construct}
+ *   - resource (PDO) => existing connection
+ *   - lazy, profiler, result, substitutes, ... => see DibiConnection options
  *
  * @copyright  Copyright (c) 2005, 2010 David Grudl
  * @package    dibi\drivers
  */
-class DibiPdoDriver extends DibiObject implements IDibiDriver
+class DibiPdoDriver extends DibiObject implements IDibiDriver, IDibiResultDriver
 {
 	/** @var PDO  Connection resource */
 	private $connection;
@@ -35,6 +35,9 @@ class DibiPdoDriver extends DibiObject implements IDibiDriver
 
 	/** @var int|FALSE  Affected rows */
 	private $affectedRows = FALSE;
+
+	/** @var string */
+	private $driverName;
 
 
 
@@ -74,6 +77,8 @@ class DibiPdoDriver extends DibiObject implements IDibiDriver
 		if (!$this->connection) {
 			throw new DibiDriverException('Connecting error.');
 		}
+
+		$this->driverName = $this->connection->getAttribute(PDO::ATTR_DRIVER_NAME);
 	}
 
 
@@ -92,14 +97,14 @@ class DibiPdoDriver extends DibiObject implements IDibiDriver
 	/**
 	 * Executes the SQL query.
 	 * @param  string      SQL statement.
-	 * @return IDibiDriver|NULL
+	 * @return IDibiResultDriver|NULL
 	 * @throws DibiDriverException
 	 */
 	public function query($sql)
 	{
 		// must detect if SQL returns result set or num of affected rows
 		$cmd = strtoupper(substr(ltrim($sql), 0, 6));
-		$list = array('UPDATE'=>1, 'DELETE'=>1, 'INSERT'=>1, 'REPLAC'=>1);
+		static $list = array('UPDATE'=>1, 'DELETE'=>1, 'INSERT'=>1, 'REPLAC'=>1);
 
 		if (isset($list[$cmd])) {
 			$this->resultSet = NULL;
@@ -208,6 +213,17 @@ class DibiPdoDriver extends DibiObject implements IDibiDriver
 
 
 
+	/**
+	 * Returns the connection reflector.
+	 * @return IDibiReflector
+	 */
+	public function getReflector()
+	{
+		throw new NotSupportedException;
+	}
+
+
+
 	/********************* SQL ****************d*g**/
 
 
@@ -229,7 +245,7 @@ class DibiPdoDriver extends DibiObject implements IDibiDriver
 			return $this->connection->quote($value, PDO::PARAM_LOB);
 
 		case dibi::IDENTIFIER:
-			switch ($this->connection->getAttribute(PDO::ATTR_DRIVER_NAME)) {
+			switch ($this->driverName) {
 			case 'mysql':
 				return '`' . str_replace('`', '``', $value) . '`';
 
@@ -293,7 +309,7 @@ class DibiPdoDriver extends DibiObject implements IDibiDriver
 	{
 		if ($limit < 0 && $offset < 1) return;
 
-		switch ($this->connection->getAttribute(PDO::ATTR_DRIVER_NAME)) {
+		switch ($this->driverName) {
 		case 'mysql':
 			$sql .= ' LIMIT ' . ($limit < 0 ? '18446744073709551615' : (int) $limit)
 				. ($offset > 0 ? ' OFFSET ' . (int) $offset : '');
@@ -351,7 +367,6 @@ class DibiPdoDriver extends DibiObject implements IDibiDriver
 	 * Fetches the row at current position and moves the internal cursor to the next position.
 	 * @param  bool     TRUE for associative array, FALSE for numeric
 	 * @return array    array on success, nonarray if no next record
-	 * @internal
 	 */
 	public function fetch($assoc)
 	{
@@ -388,7 +403,7 @@ class DibiPdoDriver extends DibiObject implements IDibiDriver
 	 * @return array
 	 * @throws DibiException
 	 */
-	public function getColumnsMeta()
+	public function getResultColumns()
 	{
 		$count = $this->resultSet->columnCount();
 		$res = array();

@@ -38,11 +38,11 @@ interface IDibiProfiler
 	const INSERT = 8;
 	const DELETE = 16;
 	const UPDATE = 32;
-	const QUERY = 60;
+	const QUERY = 60; // SELECT | INSERT | DELETE | UPDATE
 	const BEGIN = 64;
 	const COMMIT = 128;
 	const ROLLBACK = 256;
-	const TRANSACTION = 448;
+	const TRANSACTION = 448; // BEGIN | COMMIT | ROLLBACK
 	const EXCEPTION = 512;
 	const ALL = 1023;
 	/**#@-*/
@@ -104,7 +104,7 @@ interface IDibiDriver
 	/**
 	 * Internal: Executes the SQL query.
 	 * @param  string      SQL statement.
-	 * @return IDibiDriver|NULL
+	 * @return IDibiResultDriver|NULL
 	 * @throws DibiDriverException
 	 */
 	function query($sql);
@@ -151,11 +151,11 @@ interface IDibiDriver
 	 */
 	function getResource();
 
-
-
-	/********************* SQL ****************d*g**/
-
-
+	/**
+	 * Returns the connection reflector.
+	 * @return IDibiReflector
+	 */
+	function getReflector();
 
 	/**
 	 * Encodes data for use in a SQL statement.
@@ -167,15 +167,6 @@ interface IDibiDriver
 	function escape($value, $type);
 
 	/**
-	 * Decodes data from result set.
-	 * @param  string    value
-	 * @param  string    type (dibi::BINARY)
-	 * @return string    decoded value
-	 * @throws InvalidArgumentException
-	 */
-	function unescape($value, $type);
-
-	/**
 	 * Injects LIMIT/OFFSET to the SQL query.
 	 * @param  string &$sql  The SQL query that will be modified.
 	 * @param  int $limit
@@ -184,11 +175,20 @@ interface IDibiDriver
 	 */
 	function applyLimit(&$sql, $limit, $offset);
 
+}
 
 
-	/********************* result set ****************d*g**/
 
 
+
+/**
+ * dibi result set driver interface.
+ *
+ * @copyright  Copyright (c) 2005, 2010 David Grudl
+ * @package    dibi
+ */
+interface IDibiResultDriver
+{
 
 	/**
 	 * Returns the number of rows in a result set.
@@ -221,16 +221,26 @@ interface IDibiDriver
 
 	/**
 	 * Returns metadata for all columns in a result set.
-	 * @return array
-	 * @throws DibiException
+	 * @return array of {name, nativetype [, table, fullname, (int) size, (bool) nullable, (mixed) default, (bool) autoincrement, (array) vendor ]}
 	 */
-	function getColumnsMeta();
+	function getResultColumns();
 
 	/**
 	 * Returns the result set resource.
 	 * @return mixed
 	 */
 	function getResultResource();
+}
+
+	/**
+	 * Decodes data from result set.
+	 * @param  string    value
+	 * @param  string    type (dibi::BINARY)
+	 * @return string    decoded value
+	 * @throws InvalidArgumentException
+	 */
+	function unescape($value, $type);
+
 }
 
 
@@ -248,21 +258,21 @@ interface IDibiReflector
 
 	/**
 	 * Returns list of tables.
-	 * @return array
+	 * @return array of {name [, (bool) view ]}
 	 */
 	function getTables();
 
 	/**
 	 * Returns metadata for all columns in a table.
 	 * @param  string
-	 * @return array
+	 * @return array of {name, nativetype [, table, fullname, (int) size, (bool) nullable, (mixed) default, (bool) autoincrement, (array) vendor ]}
 	 */
 	function getColumns($table);
 
 	/**
 	 * Returns metadata for all indexes in a table.
 	 * @param  string
-	 * @return array
+	 * @return array of {name, (array of names) columns [, (bool) unique, (bool) primary ]}
 	 */
 	function getIndexes($table);
 

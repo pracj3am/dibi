@@ -1,4 +1,7 @@
-<h1>dibi logger example</h1>
+<!DOCTYPE html><link rel="stylesheet" href="data/style.css">
+
+<h1>Using Logger | dibi</h1>
+
 <?php
 
 require_once 'Nette/Debug.php';
@@ -9,13 +12,13 @@ date_default_timezone_set('Europe/Prague');
 
 dibi::connect(array(
 	'driver'   => 'sqlite',
-	'database' => 'sample.sdb',
+	'database' => 'data/sample.sdb',
 	'profiler' => TRUE,
 ));
 
 
-// enable log to this file
-dibi::getProfiler()->setFile('log.sql');
+// enable query logging to this file
+dibi::getProfiler()->setFile('data/log.sql');
 
 
 
@@ -31,6 +34,7 @@ try {
 }
 
 
-echo "<h2>File log.sql:</h2>";
+// outputs a log file
+echo "<h2>File data/log.sql:</h2>";
 
-echo '<pre>', file_get_contents('log.sql'), '</pre>';
+echo '<pre>', file_get_contents('data/log.sql'), '</pre>';

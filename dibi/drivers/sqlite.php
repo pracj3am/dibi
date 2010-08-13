@@ -11,24 +11,27 @@
  */
 
 
+require_once dirname(__FILE__) . '/sqlite.reflector.php';
+
+
 /**
  * The dibi driver for SQLite database.
  *
- * Connection options:
- *   - 'database' (or 'file') - the filename of the SQLite database
- *   - 'persistent' - try to find a persistent link?
- *   - 'unbuffered' - sends query without fetching and buffering the result rows automatically?
- *   - 'lazy' - if TRUE, connection will be established only when required
- *   - 'formatDate' - how to format date in SQL (@see date)
- *   - 'formatDateTime' - how to format datetime in SQL (@see date)
- *   - 'dbcharset' - database character encoding (will be converted to 'charset')
- *   - 'charset' - character encoding to set (default is UTF-8)
- *   - 'resource' - connection resource (optional)
+ * Driver options:
+ *   - database (or file) => the filename of the SQLite database
+ *   - persistent (bool) => try to find a persistent link?
+ *   - unbuffered (bool) => sends query without fetching and buffering the result rows automatically?
+ *   - formatDate => how to format date in SQL (@see date)
+ *   - formatDateTime => how to format datetime in SQL (@see date)
+ *   - dbcharset => database character encoding (will be converted to 'charset')
+ *   - charset => character encoding to set (default is UTF-8)
+ *   - resource (resource) => existing connection resource
+ *   - lazy, profiler, result, substitutes, ... => see DibiConnection options
  *
  * @copyright  Copyright (c) 2005, 2010 David Grudl
  * @package    dibi\drivers
  */
-class DibiSqliteDriver extends DibiObject implements IDibiDriver, IDibiReflector
+class DibiSqliteDriver extends DibiObject implements IDibiDriver, IDibiResultDriver
 {
 	/** @var resource  Connection resource */
 	private $connection;
@@ -108,7 +111,7 @@ class DibiSqliteDriver extends DibiObject implements IDibiDriver, IDibiReflector
 	/**
 	 * Executes the SQL query.
 	 * @param  string      SQL statement.
-	 * @return IDibiDriver|NULL
+	 * @return IDibiResultDriver|NULL
 	 * @throws DibiDriverException
 	 */
 	public function query($sql)
@@ -204,6 +207,18 @@ class DibiSqliteDriver extends DibiObject implements IDibiDriver, IDibiReflector
 
 
 
+	/**
+	 * Returns the connection reflector.
+	 * @return IDibiReflector
+>>>>>>> 8dc164d19b9742b054c71dfa8985aaaa766e7b4f
+	 */
+	public function getReflector()
+	{
+		return new DibiSqliteReflector($this);
+	}
+
+
+
 	/********************* SQL ****************d*g**/
 
 
@@ -295,7 +310,6 @@ class DibiSqliteDriver extends DibiObject implements IDibiDriver, IDibiReflector
 	 * Fetches the row at current position and moves the internal cursor to the next position.
 	 * @param  bool     TRUE for associative array, FALSE for numeric
 	 * @return array    array on success, nonarray if no next record
-	 * @internal
 	 */
 	public function fetch($assoc)
 	{
@@ -347,7 +361,7 @@ class DibiSqliteDriver extends DibiObject implements IDibiDriver, IDibiReflector
 	 * Returns metadata for all columns in a result set.
 	 * @return array
 	 */
-	public function getColumnsMeta()
+	public function getResultColumns()
 	{
 		$count = sqlite_num_fields($this->resultSet);
 		$res = array();
@@ -373,126 +387,6 @@ class DibiSqliteDriver extends DibiObject implements IDibiDriver, IDibiReflector
 	public function getResultResource()
 	{
 		return $this->resultSet;
-	}
-
-
-
-	/********************* IDibiReflector ****************d*g**/
-
-
-
-	/**
-	 * Returns list of tables.
-	 * @return array
-	 */
-	public function getTables()
-	{
-		$this->query("
-			SELECT name, type = 'view' as view FROM sqlite_master WHERE type IN ('table', 'view')
-			UNION ALL
-			SELECT name, type = 'view' as view FROM sqlite_temp_master WHERE type IN ('table', 'view')
-			ORDER BY name
-		");
-		$res = array();
-		while ($row = $this->fetch(TRUE)) {
-			$res[] = $row;
-		}
-		$this->free();
-		return $res;
-	}
-
-
-
-	/**
-	 * Returns metadata for all columns in a table.
-	 * @param  string
-	 * @return array
-	 */
-	public function getColumns($table)
-	{
-		$this->query("
-			SELECT sql FROM sqlite_master WHERE type = 'table' AND name = '$table'
-			UNION ALL
-			SELECT sql FROM sqlite_temp_master WHERE type = 'table' AND name = '$table'"
-		);
-		$meta = $this->fetch(TRUE);
-		$this->free();
-
-		$this->query("PRAGMA table_info([$table])");
-		$res = array();
-		while ($row = $this->fetch(TRUE)) {
-			$column = $row['name'];
-			$pattern = "/(\"$column\"|\[$column\]|$column)\s+[^,]+\s+PRIMARY\s+KEY\s+AUTOINCREMENT/Ui";
-			$type = explode('(', $row['type']);
-
-			$res[] = array(
-				'name' => $column,
-				'table' => $table,
-				'fullname' => "$table.$column",
-				'nativetype' => strtoupper($type[0]),
-				'size' => isset($type[1]) ? (int) $type[1] : NULL,
-				'nullable' => $row['notnull'] == '0',
-				'default' => $row['dflt_value'],
-				'autoincrement' => (bool) preg_match($pattern, $meta['sql']),
-				'vendor' => $row,
-			);
-		}
-		$this->free();
-		return $res;
-	}
-
-
-
-	/**
-	 * Returns metadata for all indexes in a table.
-	 * @param  string
-	 * @return array
-	 */
-	public function getIndexes($table)
-	{
-		$this->query("PRAGMA index_list([$table])");
-		$res = array();
-		while ($row = $this->fetch(TRUE)) {
-			$res[$row['name']]['name'] = $row['name'];
-			$res[$row['name']]['unique'] = (bool) $row['unique'];
-		}
-		$this->free();
-
-		foreach ($res as $index => $values) {
-			$this->query("PRAGMA index_info([$index])");
-			while ($row = $this->fetch(TRUE)) {
-				$res[$index]['columns'][$row['seqno']] = $row['name'];
-			}
-		}
-		$this->free();
-
-		$columns = $this->getColumns($table);
-		foreach ($res as $index => $values) {
-			$column = $res[$index]['columns'][0];
-			$primary = FALSE;
-			foreach ($columns as $info) {
-				if ($column == $info['name']) {
-					$primary = $info['vendor']['pk'];
-					break;
-				}
-			}
-			$res[$index]['primary'] = (bool) $primary;
-		}
-
-		return array_values($res);
-	}
-
-
-
-	/**
-	 * Returns metadata for all foreign keys in a table.
-	 * @param  string
-	 * @return array
-	 */
-	public function getForeignKeys($table)
-	{
-		// @see http://www.sqlite.org/foreignkeys.html
-		throw new NotSupportedException;
 	}
 
 

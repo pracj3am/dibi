@@ -14,20 +14,20 @@
 /**
  * The dibi driver for MS SQL Driver 2005 database.
  *
- * Connection options:
- *   - 'host' - the MS SQL server host name. It can also include a port number (hostname:port)
- *   - 'username'
- *   - 'password'
- *   - 'database' - the database name to select
- *   - 'options' - connection info array {@link http://msdn.microsoft.com/en-us/library/cc296161(SQL.90).aspx}
- *   - 'lazy' - if TRUE, connection will be established only when required
- *   - 'charset' - character encoding to set (default is UTF-8)
- *   - 'resource' - connection resource (optional)
+ * Driver options:
+ *   - host => the MS SQL server host name. It can also include a port number (hostname:port)
+ *   - username (or user)
+ *   - password (or pass)
+ *   - database => the database name to select
+ *   - options (array) => connection options {@link http://msdn.microsoft.com/en-us/library/cc296161(SQL.90).aspx}
+ *   - charset => character encoding to set (default is UTF-8)
+ *   - resource (resource) => existing connection resource
+ *   - lazy, profiler, result, substitutes, ... => see DibiConnection options
  *
  * @copyright  Copyright (c) 2005, 2010 David Grudl
  * @package    dibi\drivers
  */
-class DibiMsSql2005Driver extends DibiObject implements IDibiDriver
+class DibiMsSql2005Driver extends DibiObject implements IDibiDriver, IDibiResultDriver
 {
 	/** @var resource  Connection resource */
 	private $connection;
@@ -89,7 +89,7 @@ class DibiMsSql2005Driver extends DibiObject implements IDibiDriver
 	/**
 	 * Executes the SQL query.
 	 * @param  string      SQL statement.
-	 * @return IDibiDriver|NULL
+	 * @return IDibiResultDriver|NULL
 	 * @throws DibiDriverException
 	 */
 	public function query($sql)
@@ -179,6 +179,17 @@ class DibiMsSql2005Driver extends DibiObject implements IDibiDriver
 	public function getResource()
 	{
 		return $this->connection;
+	}
+
+
+
+	/**
+	 * Returns the connection reflector.
+	 * @return IDibiReflector
+	 */
+	public function getReflector()
+	{
+		throw new NotSupportedException;
 	}
 
 
@@ -278,7 +289,6 @@ class DibiMsSql2005Driver extends DibiObject implements IDibiDriver
 	 * Fetches the row at current position and moves the internal cursor to the next position.
 	 * @param  bool     TRUE for associative array, FALSE for numeric
 	 * @return array    array on success, nonarray if no next record
-	 * @internal
 	 */
 	public function fetch($assoc)
 	{
@@ -315,7 +325,7 @@ class DibiMsSql2005Driver extends DibiObject implements IDibiDriver
 	 * Returns metadata for all columns in a result set.
 	 * @return array
 	 */
-	public function getColumnsMeta()
+	public function getResultColumns()
 	{
 		$count = sqlsrv_num_fields($this->resultSet);
 		$res = array();

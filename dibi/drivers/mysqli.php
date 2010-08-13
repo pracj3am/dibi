@@ -11,28 +11,32 @@
  */
 
 
+require_once dirname(__FILE__) . '/mysql.reflector.php';
+
+
 /**
  * The dibi driver for MySQL database via improved extension.
  *
- * Connection options:
- *   - 'host' - the MySQL server host name
- *   - 'port' - the port number to attempt to connect to the MySQL server
- *   - 'socket' - the socket or named pipe
- *   - 'username' (or 'user')
- *   - 'password' (or 'pass')
- *   - 'persistent' - try to find a persistent link?
- *   - 'database' - the database name to select
- *   - 'charset' - character encoding to set
- *   - 'unbuffered' - sends query without fetching and buffering the result rows automatically?
- *   - 'options' - driver specific constants (MYSQLI_*)
- *   - 'sqlmode' - see http://dev.mysql.com/doc/refman/5.0/en/server-sql-mode.html
- *   - 'lazy' - if TRUE, connection will be established only when required
- *   - 'resource' - connection resource (optional)
+ * Driver options:
+ *   - host => the MySQL server host name
+ *   - port (int) => the port number to attempt to connect to the MySQL server
+ *   - socket => the socket or named pipe
+ *   - username (or user)
+ *   - password (or pass)
+ *   - database => the database name to select
+ *   - options (array) => array of driver specific constants (MYSQLI_*) and values {@see mysqli_options}
+ *   - flags (int) => driver specific constants (MYSQLI_CLIENT_*) {@see mysqli_real_connect}
+ *   - charset => character encoding to set (default is utf8)
+ *   - persistent (bool) => try to find a persistent link?
+ *   - unbuffered (bool) => sends query without fetching and buffering the result rows automatically?
+ *   - sqlmode => see http://dev.mysql.com/doc/refman/5.0/en/server-sql-mode.html
+ *   - resource (mysqli) => existing connection resource
+ *   - lazy, profiler, result, substitutes, ... => see DibiConnection options
  *
  * @copyright  Copyright (c) 2005, 2010 David Grudl
  * @package    dibi\drivers
  */
-class DibiMySqliDriver extends DibiObject implements IDibiDriver, IDibiReflector
+class DibiMySqliDriver extends DibiObject implements IDibiDriver, IDibiResultDriver
 {
 	const ERROR_ACCESS_DENIED = 1045;
 	const ERROR_DUPLICATE_ENTRY = 1062;
@@ -68,14 +72,13 @@ class DibiMySqliDriver extends DibiObject implements IDibiDriver, IDibiReflector
 	 */
 	public function connect(array &$config)
 	{
-		$foo = & $config['options'];
-		$foo = & $config['database'];
-
+		mysqli_report(MYSQLI_REPORT_OFF);
 		if (isset($config['resource'])) {
 			$this->connection = $config['resource'];
 
 		} else {
 			// default values
+			if (!isset($config['charset'])) $config['charset'] = 'utf8';
 			if (!isset($config['username'])) $config['username'] = ini_get('mysqli.default_user');
 			if (!isset($config['password'])) $config['password'] = ini_get('mysqli.default_pw');
 			if (!isset($config['socket'])) $config['socket'] = ini_get('mysqli.default_socket');
@@ -91,8 +94,21 @@ class DibiMySqliDriver extends DibiObject implements IDibiDriver, IDibiReflector
 				}
 			}
 
+			$foo = & $config['flags'];
+			$foo = & $config['database'];
+
 			$this->connection = mysqli_init();
-			@mysqli_real_connect($this->connection, $config['host'], $config['username'], $config['password'], $config['database'], $config['port'], $config['socket'], $config['options']); // intentionally @
+			if (isset($config['options'])) {
+				if (is_scalar($config['options'])) {
+					$config['flags'] = $config['options']; // back compatibility
+					trigger_error(__CLASS__ . ": configuration item 'options' must be array; for constants MYSQLI_CLIENT_* use 'flags'.", E_USER_NOTICE);
+				} else {
+					foreach ((array) $config['options'] as $key => $value) {
+						mysqli_options($this->connection, $key, $value);
+					}
+				}
+			}
+			@mysqli_real_connect($this->connection, $config['host'], $config['username'], $config['password'], $config['database'], $config['port'], $config['socket'], $config['flags']); // intentionally @
 
 			if ($errno = mysqli_connect_errno()) {
 				throw new DibiDriverException(mysqli_connect_error(), $errno);
@@ -135,7 +151,7 @@ class DibiMySqliDriver extends DibiObject implements IDibiDriver, IDibiReflector
 	/**
 	 * Executes the SQL query.
 	 * @param  string      SQL statement.
-	 * @return IDibiDriver|NULL
+	 * @return IDibiResultDriver|NULL
 	 * @throws DibiDriverException
 	 */
 	public function query($sql)
@@ -241,6 +257,17 @@ class DibiMySqliDriver extends DibiObject implements IDibiDriver, IDibiReflector
 
 
 
+	/**
+	 * Returns the connection reflector.
+	 * @return IDibiReflector
+	 */
+	public function getReflector()
+	{
+		return new DibiMySqlReflector($this);
+	}
+
+
+
 	/********************* SQL ****************d*g**/
 
 
@@ -337,7 +364,6 @@ class DibiMySqliDriver extends DibiObject implements IDibiDriver, IDibiReflector
 	 * Fetches the row at current position and moves the internal cursor to the next position.
 	 * @param  bool     TRUE for associative array, FALSE for numeric
 	 * @return array    array on success, nonarray if no next record
-	 * @internal
 	 */
 	public function fetch($assoc)
 	{
@@ -378,7 +404,7 @@ class DibiMySqliDriver extends DibiObject implements IDibiDriver, IDibiReflector
 	 * Returns metadata for all columns in a result set.
 	 * @return array
 	 */
-	public function getColumnsMeta()
+	public function getResultColumns()
 	{
 		static $types;
 		if (empty($types)) {
@@ -388,6 +414,7 @@ class DibiMySqliDriver extends DibiObject implements IDibiDriver, IDibiReflector
 					$types[$value] = substr($key, 12);
 				}
 			}
+			$types[MYSQLI_TYPE_TINY] = $types[MYSQLI_TYPE_SHORT] = $types[MYSQLI_TYPE_LONG] = 'INT';
 		}
 
 		$count = mysqli_num_fields($this->resultSet);
@@ -414,110 +441,6 @@ class DibiMySqliDriver extends DibiObject implements IDibiDriver, IDibiReflector
 	public function getResultResource()
 	{
 		return $this->resultSet;
-	}
-
-
-
-	/********************* IDibiReflector ****************d*g**/
-
-
-
-	/**
-	 * Returns list of tables.
-	 * @return array
-	 */
-	public function getTables()
-	{
-		/*$this->query("
-			SELECT TABLE_NAME as name, TABLE_TYPE = 'VIEW' as view
-			FROM INFORMATION_SCHEMA.TABLES
-			WHERE TABLE_SCHEMA = DATABASE()
-		");*/
-		$this->query("SHOW FULL TABLES");
-		$res = array();
-		while ($row = $this->fetch(FALSE)) {
-			$res[] = array(
-				'name' => $row[0],
-				'view' => isset($row[1]) && $row[1] === 'VIEW',
-			);
-		}
-		$this->free();
-		return $res;
-	}
-
-
-
-	/**
-	 * Returns metadata for all columns in a table.
-	 * @param  string
-	 * @return array
-	 */
-	public function getColumns($table)
-	{
-		/*$table = $this->escape($table, dibi::TEXT);
-		$this->query("
-			SELECT *
-			FROM INFORMATION_SCHEMA.COLUMNS
-			WHERE TABLE_NAME = $table AND TABLE_SCHEMA = DATABASE()
-		");*/
-		$this->query("SHOW FULL COLUMNS FROM `$table`");
-		$res = array();
-		while ($row = $this->fetch(TRUE)) {
-			$type = explode('(', $row['Type']);
-			$res[] = array(
-				'name' => $row['Field'],
-				'table' => $table,
-				'nativetype' => strtoupper($type[0]),
-				'size' => isset($type[1]) ? (int) $type[1] : NULL,
-				'unsigned' => (bool) strstr('unsigned', $row['Type']),
-				'nullable' => $row['Null'] === 'YES',
-				'default' => $row['Default'],
-				'autoincrement' => $row['Extra'] === 'auto_increment',
-				'vendor' => $row,
-			);
-		}
-		$this->free();
-		return $res;
-	}
-
-
-
-	/**
-	 * Returns metadata for all indexes in a table.
-	 * @param  string
-	 * @return array
-	 */
-	public function getIndexes($table)
-	{
-		/*$table = $this->escape($table, dibi::TEXT);
-		$this->query("
-			SELECT *
-			FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
-			WHERE TABLE_NAME = $table AND TABLE_SCHEMA = DATABASE()
-			AND REFERENCED_COLUMN_NAME IS NULL
-		");*/
-		$this->query("SHOW INDEX FROM `$table`");
-		$res = array();
-		while ($row = $this->fetch(TRUE)) {
-			$res[$row['Key_name']]['name'] = $row['Key_name'];
-			$res[$row['Key_name']]['unique'] = !$row['Non_unique'];
-			$res[$row['Key_name']]['primary'] = $row['Key_name'] === 'PRIMARY';
-			$res[$row['Key_name']]['columns'][$row['Seq_in_index'] - 1] = $row['Column_name'];
-		}
-		$this->free();
-		return array_values($res);
-	}
-
-
-
-	/**
-	 * Returns metadata for all foreign keys in a table.
-	 * @param  string
-	 * @return array
-	 */
-	public function getForeignKeys($table)
-	{
-		throw new NotImplementedException;
 	}
 
 }

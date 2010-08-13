@@ -1,3 +1,9 @@
+<?php ob_start(1) // needed by FirePHP ?>
+
+<!DOCTYPE html><link rel="stylesheet" href="data/style.css">
+
+<h1>Using Profiler | dibi</h1>
+
 <?php
 
 require_once 'Nette/Debug.php';
@@ -6,18 +12,18 @@ require_once '../dibi/dibi.php';
 
 dibi::connect(array(
 	'driver'   => 'sqlite',
-	'database' => 'sample.sdb',
+	'database' => 'data/sample.sdb',
 	'profiler' => TRUE,
 ));
 
 
+// execute some queries...
 for ($i=0; $i<20; $i++) {
 	$res = dibi::query('SELECT * FROM [customers] WHERE [customer_id] < %i', $i);
 }
 
+// display output
 ?>
-<h1>Dibi profiler example</h1>
-
 <p>Last query: <strong><?php echo dibi::$sql; ?></strong></p>
 
 <p>Number of queries: <strong><?php echo dibi::$numOfQueries; ?></strong></p>

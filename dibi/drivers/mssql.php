@@ -14,19 +14,19 @@
 /**
  * The dibi driver for MS SQL database.
  *
- * Connection options:
- *   - 'host' - the MS SQL server host name. It can also include a port number (hostname:port)
- *   - 'username' (or 'user')
- *   - 'password' (or 'pass')
- *   - 'persistent' - try to find a persistent link?
- *   - 'database' - the database name to select
- *   - 'lazy' - if TRUE, connection will be established only when required
- *   - 'resource' - connection resource (optional)
+ * Driver options:
+ *   - host => the MS SQL server host name. It can also include a port number (hostname:port)
+ *   - username (or user)
+ *   - password (or pass)
+ *   - database => the database name to select
+ *   - persistent (bool) => try to find a persistent link?
+ *   - resource (resource) => existing connection resource
+ *   - lazy, profiler, result, substitutes, ... => see DibiConnection options
  *
  * @copyright  Copyright (c) 2005, 2010 David Grudl
  * @package    dibi\drivers
  */
-class DibiMsSqlDriver extends DibiObject implements IDibiDriver
+class DibiMsSqlDriver extends DibiObject implements IDibiDriver, IDibiResultDriver
 {
 	/** @var resource  Connection resource */
 	private $connection;
@@ -67,7 +67,7 @@ class DibiMsSqlDriver extends DibiObject implements IDibiDriver
 			throw new DibiDriverException("Can't connect to DB.");
 		}
 
-		if (isset($config['database']) && !@mssql_select_db($config['database'], $this->connection)) { // intentionally @
+		if (isset($config['database']) && !@mssql_select_db($this->escape($config['database'], dibi::IDENTIFIER), $this->connection)) { // intentionally @
 			throw new DibiDriverException("Can't select DB '$config[database]'.");
 		}
 	}
@@ -88,7 +88,7 @@ class DibiMsSqlDriver extends DibiObject implements IDibiDriver
 	/**
 	 * Executes the SQL query.
 	 * @param  string      SQL statement.
-	 * @return IDibiDriver|NULL
+	 * @return IDibiResultDriver|NULL
 	 * @throws DibiDriverException
 	 */
 	public function query($sql)
@@ -177,6 +177,17 @@ class DibiMsSqlDriver extends DibiObject implements IDibiDriver
 	public function getResource()
 	{
 		return $this->connection;
+	}
+
+
+
+	/**
+	 * Returns the connection reflector.
+	 * @return IDibiReflector
+	 */
+	public function getReflector()
+	{
+		throw new NotSupportedException;
 	}
 
 
@@ -276,7 +287,6 @@ class DibiMsSqlDriver extends DibiObject implements IDibiDriver
 	 * Fetches the row at current position and moves the internal cursor to the next position.
 	 * @param  bool     TRUE for associative array, FALSE for numeric
 	 * @return array    array on success, nonarray if no next record
-	 * @internal
 	 */
 	public function fetch($assoc)
 	{
@@ -313,7 +323,7 @@ class DibiMsSqlDriver extends DibiObject implements IDibiDriver
 	 * Returns metadata for all columns in a result set.
 	 * @return array
 	 */
-	public function getColumnsMeta()
+	public function getResultColumns()
 	{
 		$count = mssql_num_fields($this->resultSet);
 		$res = array();
@@ -339,5 +349,6 @@ class DibiMsSqlDriver extends DibiObject implements IDibiDriver
 	{
 		return $this->resultSet;
 	}
+
 
 }

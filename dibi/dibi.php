@@ -107,6 +107,7 @@ class DibiVariable extends DateTime53
 // dibi libraries
 require_once dirname(__FILE__) . '/libs/interfaces.php';
 require_once dirname(__FILE__) . '/libs/DibiObject.php';
+require_once dirname(__FILE__) . '/libs/DibiLazyStorage.php';
 require_once dirname(__FILE__) . '/libs/DibiException.php';
 require_once dirname(__FILE__) . '/libs/DibiConnection.php';
 require_once dirname(__FILE__) . '/libs/DibiResult.php';
@@ -637,6 +638,9 @@ class dibi
 	 */
 	public static function addSubst($expr, $subst)
 	{
+		if ($expr === '') {
+			trigger_error(__METHOD__ . ': empty substitutions will probably be deprecated.', E_USER_NOTICE);
+		}
 		self::$substs[$expr] = $subst;
 	}
 
@@ -652,7 +656,7 @@ class dibi
 		if ($expr === TRUE) {
 			self::$substs = array();
 		} else {
-			unset(self::$substs[':'.$expr.':']);
+			unset(self::$substs[$expr]);
 		}
 	}
 
@@ -706,7 +710,7 @@ class dibi
 		} else {
 			if ($sql === NULL) $sql = self::$sql;
 
-			static $keywords1 = 'SELECT|UPDATE|INSERT(?:\s+INTO)?|REPLACE(?:\s+INTO)?|DELETE|FROM|WHERE|HAVING|GROUP\s+BY|ORDER\s+BY|LIMIT|SET|VALUES|LEFT\s+JOIN|INNER\s+JOIN|TRUNCATE';
+			static $keywords1 = 'SELECT|UPDATE|INSERT(?:\s+INTO)?|REPLACE(?:\s+INTO)?|DELETE|FROM|WHERE|HAVING|GROUP\s+BY|ORDER\s+BY|LIMIT|OFFSET|SET|VALUES|LEFT\s+JOIN|INNER\s+JOIN|TRUNCATE';
 			static $keywords2 = 'ALL|DISTINCT|DISTINCTROW|AS|USING|ON|AND|OR|IN|IS|NOT|NULL|LIKE|TRUE|FALSE';
 
 			// insert new lines
@@ -720,10 +724,13 @@ class dibi
 			$sql = htmlSpecialChars($sql);
 			$sql = preg_replace("#([ \t]*\r?\n){2,}#", "\n", $sql);
 
-			// syntax highlight
-			$sql = preg_replace_callback("#(/\\*.+?\\*/)|(\\*\\*.+?\\*\\*)|(?<=[\\s,(])($keywords1)(?=[\\s,)])|(?<=[\\s,(=])($keywords2)(?=[\\s,)=])#is", array('dibi', 'highlightCallback'), $sql);
-			$sql = trim($sql);
-			echo '<pre class="dump">', $sql, "</pre>\n";
+			if (PHP_SAPI === 'cli') {
+				echo trim($sql) . "\n\n";
+			} else {
+				// syntax highlight
+				$sql = preg_replace_callback("#(/\\*.+?\\*/)|(\\*\\*.+?\\*\\*)|(?<=[\\s,(])($keywords1)(?=[\\s,)])|(?<=[\\s,(=])($keywords2)(?=[\\s,)=])#is", array('dibi', 'highlightCallback'), $sql);
+				echo '<pre class="dump">', trim($sql), "</pre>\n";
+			}
 		}
 
 		if ($return) {

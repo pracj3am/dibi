@@ -14,20 +14,20 @@
 /**
  * The dibi driver for Firebird/InterBase database.
  *
- * Connection options:
- *   - 'database' - the path to database file (server:/path/database.fdb)
- *   - 'username' (or 'user')
- *   - 'password' (or 'pass')
- *   - 'charset' - character encoding to set
- *   - 'buffers' - buffers is the number of database buffers to allocate for the server-side cache. If 0 or omitted, server chooses its own default.
- *   - 'lazy' - if TRUE, connection will be established only when required
- *   - 'resource' - connection resource (optional)
+ * Driver options:
+ *   - database => the path to database file (server:/path/database.fdb)
+ *   - username (or user)
+ *   - password (or pass)
+ *   - charset => character encoding to set
+ *   - buffers (int) => buffers is the number of database buffers to allocate for the server-side cache. If 0 or omitted, server chooses its own default.
+ *   - resource (resource) => existing connection resource
+ *   - lazy, profiler, result, substitutes, ... => see DibiConnection options
  *
  * @author     Tomáš Kraina, Roman Sklenář
  * @copyright  Copyright (c) 2010
  * @package    dibi\drivers
  */
-class DibiFirebirdDriver extends DibiObject implements IDibiDriver, IDibiReflector
+class DibiFirebirdDriver extends DibiObject implements IDibiDriver, IDibiResultDriver, IDibiReflector
 {
 	const ERROR_EXCEPTION_THROWN = -836;
 
@@ -109,7 +109,7 @@ class DibiFirebirdDriver extends DibiObject implements IDibiDriver, IDibiReflect
 	/**
 	 * Executes the SQL query.
 	 * @param  string      SQL statement.
-	 * @return IDibiDriver|NULL
+	 * @return IDibiResultDriver|NULL
 	 * @throws DibiDriverException|DibiException
 	 */
 	public function query($sql)
@@ -331,7 +331,6 @@ class DibiFirebirdDriver extends DibiObject implements IDibiDriver, IDibiReflect
 	 * Fetches the row at current position and moves the internal cursor to the next position.
 	 * @param  bool     TRUE for associative array, FALSE for numeric
 	 * @return array    array on success, nonarray if no next record
-	 * @internal
 	 */
 	public function fetch($assoc)
 	{
@@ -393,7 +392,7 @@ class DibiFirebirdDriver extends DibiObject implements IDibiDriver, IDibiReflect
 	 * Returns metadata for all columns in a result set.
 	 * @return array
 	 */
-	public function getColumnsMeta()
+	public function getResultColumns()
 	{
 		throw new NotImplementedException;
 	}
