@@ -724,7 +724,7 @@ class dibi
 			$sql = htmlSpecialChars($sql);
 			$sql = preg_replace("#([ \t]*\r?\n){2,}#", "\n", $sql);
 
-			if (PHP_SAPI === 'cli') {
+			if (PHP_SAPI === 'cli' || PHP_SAPI === 'cgi-fcgi') {
 				echo trim($sql) . "\n\n";
 			} else {
 				// syntax highlight

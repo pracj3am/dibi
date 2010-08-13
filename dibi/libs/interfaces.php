@@ -230,7 +230,6 @@ interface IDibiResultDriver
 	 * @return mixed
 	 */
 	function getResultResource();
-}
 
 	/**
 	 * Decodes data from result set.
