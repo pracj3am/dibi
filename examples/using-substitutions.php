@@ -26,6 +26,16 @@ dibi::test("SELECT * FROM [:blog:items]");
 
 
 
+// create new substitution :: (empty)  ==>  my_
+dibi::addSubst('', 'my_');
+
+dibi::test("UPDATE ::table SET [text]='Hello World'");
+// -> UPDATE my_table SET [text]='Hello World'
+
+
+
+
+
 // create substitutions using fallback callback
 function substFallBack($expr)
 {
@@ -45,8 +55,8 @@ define('SUBST_ACCOUNT', 'eshop_');
 define('SUBST_ACTIVE', 7);
 
 dibi::test("
-	UPDATE [:account:user]
-	SET [name]='John Doe', [status]=:active:
+	UPDATE :account:user
+	SET name='John Doe', status=:active:
 	WHERE id=", 7
 );
-// -> UPDATE [the_accountuser] SET [name]='John Doe', [status]=7 WHERE id=7
+// -> UPDATE eshop_user SET name='John Doe', status=7 WHERE id= 7

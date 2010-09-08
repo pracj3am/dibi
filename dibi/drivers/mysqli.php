@@ -334,6 +334,20 @@ class DibiMySqliDriver extends DibiObject implements IDibiDriver, IDibiResultDri
 
 
 	/**
+	 * Encodes string for use in a LIKE statement.
+	 * @param  string
+	 * @param  int
+	 * @return string
+	 */
+	public function escapeLike($value, $pos)
+	{
+		$value = addcslashes(str_replace('\\', '\\\\', $value), "\x00\n\r\\'%_");
+		return ($pos <= 0 ? "'%" : "'") . $value . ($pos >= 0 ? "%'" : "'");
+	}
+
+
+
+	/**
 	 * Decodes data from result set.
 	 * @param  string    value
 	 * @param  string    type (dibi::BINARY)
@@ -444,10 +458,10 @@ class DibiMySqliDriver extends DibiObject implements IDibiDriver, IDibiResultDri
 		}
 
 		$count = mysqli_num_fields($this->resultSet);
-		$res = array();
+		$columns = array();
 		for ($i = 0; $i < $count; $i++) {
 			$row = (array) mysqli_fetch_field_direct($this->resultSet, $i);
-			$res[] = array(
+			$columns[] = array(
 				'name' => $row['name'],
 				'table' => $row['orgtable'],
 				'fullname' => $row['table'] ? $row['table'] . '.' . $row['name'] : $row['name'],
@@ -455,7 +469,7 @@ class DibiMySqliDriver extends DibiObject implements IDibiDriver, IDibiResultDri
 				'vendor' => $row,
 			);
 		}
-		return $res;
+		return $columns;
 	}
 
 

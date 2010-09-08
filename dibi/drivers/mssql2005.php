@@ -233,6 +233,20 @@ class DibiMsSql2005Driver extends DibiObject implements IDibiDriver, IDibiResult
 
 
 	/**
+	 * Encodes string for use in a LIKE statement.
+	 * @param  string
+	 * @param  int
+	 * @return string
+	 */
+	public function escapeLike($value, $pos)
+	{
+		$value = strtr($value, array("'" => "''", '%' => '[%]', '_' => '[_]', '[' => '[[]'));
+		return ($pos <= 0 ? "'%" : "'") . $value . ($pos >= 0 ? "%'" : "'");
+	}
+
+
+
+	/**
 	 * Decodes data from result set.
 	 * @param  string    value
 	 * @param  string    type (dibi::BINARY)
@@ -328,16 +342,16 @@ class DibiMsSql2005Driver extends DibiObject implements IDibiDriver, IDibiResult
 	public function getResultColumns()
 	{
 		$count = sqlsrv_num_fields($this->resultSet);
-		$res = array();
+		$columns = array();
 		for ($i = 0; $i < $count; $i++) {
 			$row = (array) sqlsrv_field_metadata($this->resultSet, $i);
-			$res[] = array(
+			$columns[] = array(
 				'name' => $row['Name'],
 				'fullname' => $row['Name'],
 				'nativetype' => $row['Type'],
 			);
 		}
-		return $res;
+		return $columns;
 	}
 
 

@@ -257,6 +257,19 @@ class DibiSqliteDriver extends DibiObject implements IDibiDriver, IDibiResultDri
 
 
 	/**
+	 * Encodes string for use in a LIKE statement.
+	 * @param  string
+	 * @param  int
+	 * @return string
+	 */
+	public function escapeLike($value, $pos)
+	{
+		throw new NotSupportedException;
+	}
+
+
+
+	/**
 	 * Decodes data from result set.
 	 * @param  string    value
 	 * @param  string    type (dibi::BINARY)
@@ -364,18 +377,18 @@ class DibiSqliteDriver extends DibiObject implements IDibiDriver, IDibiResultDri
 	public function getResultColumns()
 	{
 		$count = sqlite_num_fields($this->resultSet);
-		$res = array();
+		$columns = array();
 		for ($i = 0; $i < $count; $i++) {
 			$name = str_replace(array('[', ']'), '', sqlite_field_name($this->resultSet, $i));
 			$pair = explode('.', $name);
-			$res[] = array(
+			$columns[] = array(
 				'name'  => isset($pair[1]) ? $pair[1] : $pair[0],
 				'table' => isset($pair[1]) ? $pair[0] : NULL,
 				'fullname' => $name,
 				'nativetype' => NULL,
 			);
 		}
-		return $res;
+		return $columns;
 	}
 
 

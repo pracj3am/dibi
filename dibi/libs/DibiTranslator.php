@@ -55,7 +55,6 @@ final class DibiTranslator extends DibiObject
 	public function __construct(IDibiDriver $driver)
 	{
 		$this->driver = $driver;
-		$this->identifiers = new DibiLazyStorage(array($this, 'delimite'));
 	}
 
 
@@ -68,6 +67,7 @@ final class DibiTranslator extends DibiObject
 	 */
 	public function translate(array $args)
 	{
+		$this->identifiers = new DibiLazyStorage(array($this, 'delimite'));
 		$args = array_values($args);
 		while (count($args) === 1 && is_array($args[0])) { // implicit array expansion
 			$args = array_values($args[0]);
@@ -114,11 +114,11 @@ final class DibiTranslator extends DibiObject
 						(")((?:""|[^"])*)"|          ## 5,6) "string"
 						(\'|")|                      ## 7) lone quote
 						:(\S*?:)([a-zA-Z0-9._]?)|    ## 8,9) :substitution:
-						%([a-zA-Z]{1,4})(?![a-zA-Z])|## 10) modifier
+						%([a-zA-Z~][a-zA-Z0-9~]{0,5})|## 10) modifier
 						(\?)                         ## 11) placeholder
 					)/xs',
 */                  // note: this can change $this->args & $this->cursor & ...
-					. preg_replace_callback('/(?=[`[\'":%?])(?:`(.+?)`|\[(.+?)\]|(\')((?:\'\'|[^\'])*)\'|(")((?:""|[^"])*)"|(\'|")|:(\S*?:)([a-zA-Z0-9._]?)|%([a-zA-Z]{1,4})(?![a-zA-Z])|(\?))/s',
+					. preg_replace_callback('/(?=[`[\'":%?])(?:`(.+?)`|\[(.+?)\]|(\')((?:\'\'|[^\'])*)\'|(")((?:""|[^"])*)"|(\'|")|:(\S*?:)([a-zA-Z0-9._]?)|%([a-zA-Z~][a-zA-Z0-9~]{0,5})|(\?))/s',
 							array($this, 'cb'),
 							substr($arg, $toSkip)
 					);
@@ -388,6 +388,15 @@ final class DibiTranslator extends DibiObject
 			case 'SQL': // preserve as real SQL (TODO: rename to %sql)
 				return (string) $value;
 
+			case 'like~':  // LIKE string%
+				return $this->driver->escapeLike($value, 1);
+
+			case '~like':  // LIKE %string
+				return $this->driver->escapeLike($value, -1);
+
+			case '~like~': // LIKE %string%
+				return $this->driver->escapeLike($value, 0);
+
 			case 'and':
 			case 'or':
 			case 'a':
@@ -544,7 +553,7 @@ final class DibiTranslator extends DibiObject
 
 		if ($matches[8]) { // SQL identifier substitution
 			$m = substr($matches[8], 0, -1);
-			$m = isset(dibi::$substs[$m]) ? dibi::$substs[$m] : call_user_func(dibi::$substFallBack, $m);
+			$m = dibi::$substs->$m;
 			$pair = explode('%', $m, 2); // split into substituent & modifier
 			return $matches[9] == '' ? $this->formatValue($pair[0], isset($pair[1]) ? $pair[1] : FALSE) : $m . $matches[9]; // value or identifier
 		}
@@ -593,8 +602,7 @@ final class DibiTranslator extends DibiObject
 	 */
 	private static function subCb($m)
 	{
-		$m = $m[1];
-		$m = isset(dibi::$substs[$m]) ? dibi::$substs[$m] : call_user_func(dibi::$substFallBack, $m);
+		$m = dibi::$substs->{$m[1]};
 		$pair = explode('%', $m, 2); // split into substituent & modifier
 		return $pair[0]; //modifier has no purpose in this context
 	}

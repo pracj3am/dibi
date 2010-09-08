@@ -32,61 +32,42 @@ if (version_compare(PHP_VERSION, '5.2.0', '<')) {
 /**
  * Compatibility with Nette
  */
-if (!class_exists('NotImplementedException', FALSE)) {
-	/** @package exceptions */
+if (interface_exists('Nette\\IDebugPanel', FALSE)) {
+	class_alias('Nette\\IDebugPanel', 'IDebugPanel');
+
+} elseif (!interface_exists('IDebugPanel', FALSE)) {
+	interface IDebugPanel {}
+}
+
+if (!defined('NETTE')) {
+	/**#@+ @package exceptions */
 	class NotImplementedException extends LogicException {}
-}
-
-if (!class_exists('NotSupportedException', FALSE)) {
-	/** @package exceptions */
 	class NotSupportedException extends LogicException {}
-}
-
-if (!class_exists('MemberAccessException', FALSE)) {
-	/** @package exceptions */
 	class MemberAccessException extends LogicException {}
-}
-
-if (!class_exists('InvalidStateException', FALSE)) {
-	/** @package exceptions */
 	class InvalidStateException extends RuntimeException {}
-}
-
-if (!class_exists('IOException', FALSE)) {
-	/** @package exceptions */
 	class IOException extends RuntimeException {}
-}
-
-if (!class_exists('FileNotFoundException', FALSE)) {
-	/** @package exceptions */
 	class FileNotFoundException extends IOException {}
-}
+	/**#@-*/
 
-if (!class_exists('PcreException', FALSE)) {
-	/** @package exceptions */
-	class PcreException extends Exception {
-
-		public function __construct()
-		{
-			static $messages = array(
-				PREG_INTERNAL_ERROR => 'Internal error.',
-				PREG_BACKTRACK_LIMIT_ERROR => 'Backtrack limit was exhausted.',
-				PREG_RECURSION_LIMIT_ERROR => 'Recursion limit was exhausted.',
-				PREG_BAD_UTF8_ERROR => 'Malformed UTF-8 data.',
-				5 => 'Offset didn\'t correspond to the begin of a valid UTF-8 code point.', // PREG_BAD_UTF8_OFFSET_ERROR
-			);
-			$code = preg_last_error();
-			parent::__construct(isset($messages[$code]) ? $messages[$code] : 'Unknown error.', $code);
-		}
-	}
-}
-
-if (!interface_exists(/**/'Nette\\'./**/'IDebugPanel', FALSE)) {
-	require_once dirname(__FILE__) . '/Nette/IDebugPanel.php';
-}
-
-if (!class_exists('DateTime53', FALSE)) {
 	require_once dirname(__FILE__) . '/Nette/DateTime53.php';
+}
+
+
+/** @package exceptions */
+class PcreException extends Exception {
+
+	public function __construct($message = '%msg.')
+	{
+		static $messages = array(
+			PREG_INTERNAL_ERROR => 'Internal error',
+			PREG_BACKTRACK_LIMIT_ERROR => 'Backtrack limit was exhausted',
+			PREG_RECURSION_LIMIT_ERROR => 'Recursion limit was exhausted',
+			PREG_BAD_UTF8_ERROR => 'Malformed UTF-8 data',
+			5 => 'Offset didn\'t correspond to the begin of a valid UTF-8 code point', // PREG_BAD_UTF8_OFFSET_ERROR
+		);
+		$code = preg_last_error();
+		parent::__construct(str_replace('%msg', isset($messages[$code]) ? $messages[$code] : 'Unknown error', $message), $code);
+	}
 }
 
 
@@ -176,11 +157,8 @@ class dibi
 	/** @var DibiConnection  Current connection */
 	private static $connection;
 
-	/** @var array  Substitutions for identifiers */
-	public static $substs = array();
-
-	/** @var callback  Substitution fallback */
-	public static $substFallBack = array(__CLASS__, 'defaultSubstFallback');
+	/** @var DibiLazyStorage  Substitutions for identifiers */
+	public static $substs;
 
 	/** @var array  @see addHandler */
 	private static $handlers = array();
@@ -273,6 +251,18 @@ class dibi
 		}
 
 		return self::$registry[$name];
+	}
+
+
+
+	/**
+	 * Sets connection.
+	 * @param  DibiConnection
+	 * @return DibiConnection
+	 */
+	public static function setConnection(DibiConnection $connection)
+	{
+		return self::$connection = $connection;
 	}
 
 
@@ -638,10 +628,7 @@ class dibi
 	 */
 	public static function addSubst($expr, $subst)
 	{
-		if ($expr === '') {
-			trigger_error(__METHOD__ . ': empty substitutions will probably be deprecated.', E_USER_NOTICE);
-		}
-		self::$substs[$expr] = $subst;
+		self::$substs->$expr = $subst;
 	}
 
 
@@ -654,9 +641,9 @@ class dibi
 	public static function removeSubst($expr)
 	{
 		if ($expr === TRUE) {
-			self::$substs = array();
+			self::$substs = new DibiLazyStorage(self::$substs->getCallback());
 		} else {
-			unset(self::$substs[$expr]);
+			unset(self::$substs->$expr);
 		}
 	}
 
@@ -669,12 +656,7 @@ class dibi
 	 */
 	public static function setSubstFallback($callback)
 	{
-		if (!is_callable($callback)) {
-			$able = is_callable($callback, TRUE, $textual);
-			throw new InvalidArgumentException("Handler '$textual' is not " . ($able ? 'callable.' : 'valid PHP callback.'));
-		}
-
-		self::$substFallBack = $callback;
+		self::$substs->setCallback($callback);
 	}
 
 
@@ -686,7 +668,7 @@ class dibi
 	 */
 	public static function defaultSubstFallback($expr)
 	{
-		throw new InvalidStateException("Missing substitution for '$expr' expression.");
+		return ":$expr:";
 	}
 
 
@@ -721,13 +703,13 @@ class dibi
 			$sql = preg_replace('#[ \t]{2,}#', " ", $sql);
 
 			$sql = wordwrap($sql, 100);
-			$sql = htmlSpecialChars($sql);
 			$sql = preg_replace("#([ \t]*\r?\n){2,}#", "\n", $sql);
 
 			if (PHP_SAPI === 'cli' || PHP_SAPI === 'cgi-fcgi') {
 				echo trim($sql) . "\n\n";
 			} else {
 				// syntax highlight
+				$sql = htmlSpecialChars($sql);
 				$sql = preg_replace_callback("#(/\\*.+?\\*/)|(\\*\\*.+?\\*\\*)|(?<=[\\s,(])($keywords1)(?=[\\s,)])|(?<=[\\s,(=])($keywords2)(?=[\\s,)=])#is", array('dibi', 'highlightCallback'), $sql);
 				echo '<pre class="dump">', trim($sql), "</pre>\n";
 			}
@@ -758,3 +740,8 @@ class dibi
 	}
 
 }
+
+
+
+// static constructor
+dibi::$substs = new DibiLazyStorage(array('dibi', 'defaultSubstFallback'));

@@ -22,7 +22,7 @@
  * @copyright  Copyright (c) 2005, 2010 David Grudl
  * @package    dibi
  */
-class DibiProfiler extends DibiObject implements IDibiProfiler, /**/Nette\/**/IDebugPanel
+class DibiProfiler extends DibiObject implements IDibiProfiler, IDebugPanel
 {
 	/** maximum number of rows */
 	static public $maxQueries = 30;
@@ -52,8 +52,12 @@ class DibiProfiler extends DibiObject implements IDibiProfiler, /**/Nette\/**/ID
 
 	public function __construct(array $config)
 	{
-		if (class_exists(/**/'Nette\\'./**/'Debug', FALSE) && is_callable(/**/'Nette\\'./**/'Debug::addPanel')) {
-			/**/Nette\/**/Debug::addPanel($this);
+		if (is_callable('Nette\Debug::addPanel')) {
+			call_user_func('Nette\Debug::addPanel', $this);
+		} elseif (is_callable('NDebug::addPanel')) {
+			NDebug::addPanel($this);
+		} elseif (is_callable('Debug::addPanel')) {
+			Debug::addPanel($this);
 		}
 
 		$this->useFirebug = isset($_SERVER['HTTP_USER_AGENT']) && strpos($_SERVER['HTTP_USER_AGENT'], 'FirePHP/');
@@ -243,7 +247,7 @@ class DibiProfiler extends DibiObject implements IDibiProfiler, /**/Nette\/**/ID
 	 */
 	public function getTab()
 	{
-		return '<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAQAAAC1+jfqAAAABGdBTUEAAK/INwWK6QAAABl0RVh0U29mdHdhcmUAQWRvYmUgSW1hZ2VSZWFkeXHJZTwAAAEYSURBVBgZBcHPio5hGAfg6/2+R980k6wmJgsJ5U/ZOAqbSc2GnXOwUg7BESgLUeIQ1GSjLFnMwsKGGg1qxJRmPM97/1zXFAAAAEADdlfZzr26miup2svnelq7d2aYgt3rebl585wN6+K3I1/9fJe7O/uIePP2SypJkiRJ0vMhr55FLCA3zgIAOK9uQ4MS361ZOSX+OrTvkgINSjS/HIvhjxNNFGgQsbSmabohKDNoUGLohsls6BaiQIMSs2FYmnXdUsygQYmumy3Nhi6igwalDEOJEjPKP7CA2aFNK8Bkyy3fdNCg7r9/fW3jgpVJbDmy5+PB2IYp4MXFelQ7izPrhkPHB+P5/PjhD5gCgCenx+VR/dODEwD+A3T7nqbxwf1HAAAAAElFTkSuQmCC">'
+		return '<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAQAAAC1+jfqAAAABGdBTUEAAK/INwWK6QAAABl0RVh0U29mdHdhcmUAQWRvYmUgSW1hZ2VSZWFkeXHJZTwAAAEYSURBVBgZBcHPio5hGAfg6/2+R980k6wmJgsJ5U/ZOAqbSc2GnXOwUg7BESgLUeIQ1GSjLFnMwsKGGg1qxJRmPM97/1zXFAAAAEADdlfZzr26miup2svnelq7d2aYgt3rebl585wN6+K3I1/9fJe7O/uIePP2SypJkiRJ0vMhr55FLCA3zgIAOK9uQ4MS361ZOSX+OrTvkgINSjS/HIvhjxNNFGgQsbSmabohKDNoUGLohsls6BaiQIMSs2FYmnXdUsygQYmumy3Nhi6igwalDEOJEjPKP7CA2aFNK8Bkyy3fdNCg7r9/fW3jgpVJbDmy5+PB2IYp4MXFelQ7izPrhkPHB+P5/PjhD5gCgCenx+VR/dODEwD+A3T7nqbxwf1HAAAAAElFTkSuQmCC" />'
 			. dibi::$numOfQueries . ' queries';
 	}
 
@@ -279,7 +283,7 @@ class DibiProfiler extends DibiObject implements IDibiProfiler, /**/Nette\/**/ID
 			$content .= "
 <tr {$classes[++$i%2]}>
 	<td>" . sprintf('%0.3f', $time * 1000) . ($explain ? "
-	<br><a href='#' class='nette-toggler' rel='#nette-debug-DibiProfiler-row-$i'>explain&nbsp;&#x25ba;</a>" : '') . "</td>
+	<br /><a href='#' class='nette-toggler' rel='#nette-debug-DibiProfiler-row-$i'>explain&nbsp;&#x25ba;</a>" : '') . "</td>
 	<td class='dibi-sql'>" . dibi::dump(strlen($sql) > self::$maxLength ? substr($sql, 0, self::$maxLength) . '...' : $sql, TRUE) . ($explain ? "
 	<div id='nette-debug-DibiProfiler-row-$i'>{$explain}</div>" : '') . "</td>
 	<td>{$count}</td>

@@ -282,6 +282,19 @@ class DibiPdoDriver extends DibiObject implements IDibiDriver, IDibiResultDriver
 
 
 	/**
+	 * Encodes string for use in a LIKE statement.
+	 * @param  string
+	 * @param  int
+	 * @return string
+	 */
+	public function escapeLike($value, $pos)
+	{
+		throw new NotImplementedException;
+	}
+
+
+
+	/**
 	 * Decodes data from result set.
 	 * @param  string    value
 	 * @param  string    type (dibi::BINARY)
@@ -406,7 +419,7 @@ class DibiPdoDriver extends DibiObject implements IDibiDriver, IDibiResultDriver
 	public function getResultColumns()
 	{
 		$count = $this->resultSet->columnCount();
-		$res = array();
+		$columns = array();
 		for ($i = 0; $i < $count; $i++) {
 			$row = @$this->resultSet->getColumnMeta($i); // intentionally @
 			if ($row === FALSE) {
@@ -416,7 +429,7 @@ class DibiPdoDriver extends DibiObject implements IDibiDriver, IDibiResultDriver
 			// @see: http://php.net/manual/en/pdostatement.getcolumnmeta.php#pdostatement.getcolumnmeta.changelog
 			$row['table'] = isset($row['table']) ? $row['table'] : NULL;
 
-			$res[] = array(
+			$columns[] = array(
 				'name' => $row['name'],
 				'table' => $row['table'],
 				'nativetype' => $row['native_type'],
@@ -424,7 +437,7 @@ class DibiPdoDriver extends DibiObject implements IDibiDriver, IDibiResultDriver
 				'vendor' => $row,
 			);
 		}
-		return $res;
+		return $columns;
 	}
 
 
