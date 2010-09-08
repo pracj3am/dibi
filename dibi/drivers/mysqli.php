@@ -168,6 +168,32 @@ class DibiMySqliDriver extends DibiObject implements IDibiDriver, IDibiResultDri
 
 
 	/**
+	 * Executes one or multiple queries which are concatenated by a semicolon.
+	 * @param  string      SQL statement.
+	 * @return IDibiResultDriver|NULL
+	 * @throws DibiDriverException
+	 */
+	public function multiQuery($sql)
+	{
+		@mysqli_multi_query($this->connection, $sql); // intentionally @
+		$this->resultSet = @mysqli_store_result($this->connection);
+
+		if (mysqli_errno($this->connection)) {
+			throw new DibiDriverException(mysqli_error($this->connection), mysqli_errno($this->connection), $sql);
+		}
+
+		while (@mysqli_next_result($this->connection)) {
+			if (mysqli_errno($this->connection)) {
+				throw new DibiDriverException(mysqli_error($this->connection), mysqli_errno($this->connection), $sql);
+			}
+		}
+
+		return is_object($this->resultSet) ? clone $this : NULL;
+	}
+
+
+
+	/**
 	 * Retrieves information about the most recently executed query.
 	 * @return array
 	 */
