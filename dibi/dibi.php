@@ -1,19 +1,12 @@
 <?php
 
 /**
- * dibi - tiny'n'smart database abstraction layer
- * ----------------------------------------------
+ * dibi - smart database abstraction layer.
  *
  * Copyright (c) 2005, 2010 David Grudl (http://davidgrudl.com)
  *
- * This source file is subject to the "dibi license" that is bundled
- * with this package in the file license.txt, and/or GPL license.
- *
- * For more information please see http://dibiphp.com
- *
- * @copyright  Copyright (c) 2005, 2010 David Grudl
- * @license    http://dibiphp.com/license  dibi license
- * @link       http://dibiphp.com
+ * This source file is subject to the "dibi license", and/or
+ * GPL license. For more information please see http://dibiphp.com
  * @package    dibi
  */
 
@@ -32,10 +25,10 @@ if (version_compare(PHP_VERSION, '5.2.0', '<')) {
 /**
  * Compatibility with Nette
  */
-if (interface_exists('Nette\\IDebugPanel', FALSE)) {
+if (interface_exists('Nette\\IDebugPanel')) {
 	class_alias('Nette\\IDebugPanel', 'IDebugPanel');
 
-} elseif (!interface_exists('IDebugPanel', FALSE)) {
+} elseif (!interface_exists('IDebugPanel')) {
 	interface IDebugPanel {}
 }
 
@@ -110,8 +103,7 @@ require_once dirname(__FILE__) . '/libs/DibiProfiler.php';
  * This class is static container class for creating DB objects and
  * store connections info.
  *
- * @copyright  Copyright (c) 2005, 2010 David Grudl
- * @package    dibi
+ * @author     David Grudl
  */
 class dibi
 {
