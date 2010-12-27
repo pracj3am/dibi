@@ -40,19 +40,19 @@ class DibiDataSource extends DibiObject implements IDataSource
 	protected $totalCount;
 
 	/** @var array */
-	private $cols = array();
+	protected $cols = array();
 
 	/** @var array */
-	private $sorting = array();
+	protected $sorting = array();
 
 	/** @var array */
-	private $conds = array();
+	protected $conds = array();
 
 	/** @var int */
-	private $offset;
+	protected $offset;
 
 	/** @var int */
-	private $limit;
+	protected $limit;
 
 
 
