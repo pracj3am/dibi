@@ -1,12 +1,13 @@
 <?php
 
 /**
- * dibi - smart database abstraction layer.
+ * dibi - smart database abstraction layer (http://dibiphp.com)
  *
  * Copyright (c) 2005, 2010 David Grudl (http://davidgrudl.com)
  *
- * This source file is subject to the "dibi license", and/or
- * GPL license. For more information please see http://dibiphp.com
+ * For the full copyright and license information, please view
+ * the file license.txt that was distributed with this source code.
+ *
  * @package    dibi
  */
 
@@ -32,56 +33,12 @@ if (interface_exists('Nette\\IDebugPanel')) {
 	interface IDebugPanel {}
 }
 
-if (!defined('NETTE')) {
-	/**#@+ @package exceptions */
-	class NotImplementedException extends LogicException {}
-	class NotSupportedException extends LogicException {}
-	class MemberAccessException extends LogicException {}
-	class InvalidStateException extends RuntimeException {}
-	class IOException extends RuntimeException {}
-	class FileNotFoundException extends IOException {}
-	/**#@-*/
-
-	require_once dirname(__FILE__) . '/Nette/DateTime53.php';
-}
 
 
-/** @package exceptions */
-class PcreException extends Exception {
-
-	public function __construct($message = '%msg.')
-	{
-		static $messages = array(
-			PREG_INTERNAL_ERROR => 'Internal error',
-			PREG_BACKTRACK_LIMIT_ERROR => 'Backtrack limit was exhausted',
-			PREG_RECURSION_LIMIT_ERROR => 'Recursion limit was exhausted',
-			PREG_BAD_UTF8_ERROR => 'Malformed UTF-8 data',
-			5 => 'Offset didn\'t correspond to the begin of a valid UTF-8 code point', // PREG_BAD_UTF8_OFFSET_ERROR
-		);
-		$code = preg_last_error();
-		parent::__construct(str_replace('%msg', isset($messages[$code]) ? $messages[$code] : 'Unknown error', $message), $code);
-	}
-}
-
-
-
-/**
- * @deprecated
- */
-class DibiVariable extends DateTime53
-{
-	function __construct($val)
-	{
-		parent::__construct($val);
-	}
-}
-
-
-
-// dibi libraries
 require_once dirname(__FILE__) . '/libs/interfaces.php';
+require_once dirname(__FILE__) . '/libs/DibiDateTime.php';
 require_once dirname(__FILE__) . '/libs/DibiObject.php';
-require_once dirname(__FILE__) . '/libs/DibiLazyStorage.php';
+require_once dirname(__FILE__) . '/libs/DibiHashMap.php';
 require_once dirname(__FILE__) . '/libs/DibiException.php';
 require_once dirname(__FILE__) . '/libs/DibiConnection.php';
 require_once dirname(__FILE__) . '/libs/DibiResult.php';
@@ -92,6 +49,20 @@ require_once dirname(__FILE__) . '/libs/DibiDataSource.php';
 require_once dirname(__FILE__) . '/libs/DibiFluent.php';
 require_once dirname(__FILE__) . '/libs/DibiDatabaseInfo.php';
 require_once dirname(__FILE__) . '/libs/DibiProfiler.php';
+
+
+
+/**
+ * @deprecated
+ */
+class DibiVariable extends DibiDateTime
+{
+	function __construct($val)
+	{
+		parent::__construct($val);
+		trigger_error(__CLASS__ . ' is deprecated; use class DateTime instead.', E_USER_WARNING);
+	}
+}
 
 
 
@@ -107,50 +78,41 @@ require_once dirname(__FILE__) . '/libs/DibiProfiler.php';
  */
 class dibi
 {
-	/**#@+
-	 * dibi data type
-	 */
-	const TEXT =       's'; // as 'string'
-	const BINARY =     'bin';
-	const BOOL =       'b';
-	const INTEGER =    'i';
-	const FLOAT =      'f';
-	const DATE =       'd';
-	const DATETIME =   't';
-	const TIME =       't';
+	/** column type */
+	const TEXT = 's', // as 'string'
+		BINARY = 'bin',
+		BOOL = 'b',
+		INTEGER = 'i',
+		FLOAT = 'f',
+		DATE = 'd',
+		DATETIME = 't',
+		TIME = 't';
+
 	const IDENTIFIER = 'n';
-	/**#@-*/
 
-	/**#@+
-	 * @deprecated column types
-	 */
-	const FIELD_TEXT = self::TEXT;
-	const FIELD_BINARY = self::BINARY;
-	const FIELD_BOOL = self::BOOL;
-	const FIELD_INTEGER = self::INTEGER;
-	const FIELD_FLOAT = self::FLOAT;
-	const FIELD_DATE = self::DATE;
-	const FIELD_DATETIME = self::DATETIME;
-	const FIELD_TIME = self::TIME;
-	/**#@-*/
+	/** @deprecated */
+	const FIELD_TEXT = dibi::TEXT,
+		FIELD_BINARY = dibi::BINARY,
+		FIELD_BOOL = dibi::BOOL,
+		FIELD_INTEGER = dibi::INTEGER,
+		FIELD_FLOAT = dibi::FLOAT,
+		FIELD_DATE = dibi::DATE,
+		FIELD_DATETIME = dibi::DATETIME,
+		FIELD_TIME = dibi::TIME;
 
-	/**#@+
-	 * dibi version
-	 */
-	const VERSION = '1.3-dev';
-	const REVISION = '$WCREV$ released on $WCDATE$';
-	/**#@-*/
+	/** version */
+	const VERSION = '1.5-rc1',
+		REVISION = '$WCREV$ released on $WCDATE$';
 
-	const ASC = 'ASC', DESC = 'DESC';
+	/** sorting order */
+	const ASC = 'ASC',
+		DESC = 'DESC';
 
 	/** @var DibiConnection[]  Connection registry storage for DibiConnection objects */
 	private static $registry = array();
 
 	/** @var DibiConnection  Current connection */
 	private static $connection;
-
-	/** @var DibiLazyStorage  Substitutions for identifiers */
-	public static $substs;
 
 	/** @var array  @see addHandler */
 	private static $handlers = array();
@@ -589,11 +551,12 @@ class dibi
 
 
 	/**
-	 * @deprecated
+	 * @return DibiDateTime
 	 */
 	public static function datetime($time = NULL)
 	{
-		return new DateTime53(is_numeric($time) ? date('Y-m-d H:i:s', $time) : $time);
+		trigger_error(__METHOD__ . '() is deprecated; create DibiDateTime object instead.', E_USER_WARNING);
+		return new DibiDateTime($time);
 	}
 
 
@@ -603,7 +566,8 @@ class dibi
 	 */
 	public static function date($date = NULL)
 	{
-		return new DateTime53(is_numeric($date) ? date('Y-m-d', $date) : $date);
+		trigger_error(__METHOD__ . '() is deprecated; create DibiDateTime object instead.', E_USER_WARNING);
+		return new DibiDateTime($date);
 	}
 
 
@@ -613,54 +577,46 @@ class dibi
 
 
 	/**
-	 * Create a new substitution pair for indentifiers.
-	 * @param  string from
-	 * @param  string to
-	 * @return void
+	 * Returns substitution hashmap - Monostate for DibiConnection::getSubstitutes().
+	 * @return DibiHashMap
 	 */
-	public static function addSubst($expr, $subst)
+	public static function getSubstitutes()
 	{
-		self::$substs->$expr = $subst;
+		return self::getConnection()->getSubstitutes();
 	}
 
 
 
-	/**
-	 * Remove substitution pair.
-	 * @param  mixed from or TRUE
-	 * @return void
-	 */
+	/** @deprecated */
+	public static function addSubst($expr, $subst)
+	{
+		trigger_error(__METHOD__ . '() is deprecated; use dibi::getSubstitutes()->expr = val; instead.', E_USER_WARNING);
+		self::getSubstitutes()->$expr = $subst;
+	}
+
+
+
+	/** @deprecated */
 	public static function removeSubst($expr)
 	{
+		trigger_error(__METHOD__ . '() is deprecated; use unset(dibi::getSubstitutes()->expr) instead.', E_USER_WARNING);
+		$substitutes = self::getSubstitutes();
 		if ($expr === TRUE) {
-			self::$substs = new DibiLazyStorage(self::$substs->getCallback());
+			foreach ($substitutes as $expr => $foo) {
+				unset($substitutes->$expr);
+			}
 		} else {
-			unset(self::$substs->$expr);
+			unset($substitutes->$expr);
 		}
 	}
 
 
 
-	/**
-	 * Sets substitution fallback handler.
-	 * @param  callback
-	 * @return void
-	 */
+	/** @deprecated */
 	public static function setSubstFallback($callback)
 	{
-		self::$substs->setCallback($callback);
-	}
-
-
-
-	/**
-	 * Default substitution fallback handler.
-	 * @param  string
-	 * @return mixed
-	 */
-	public static function defaultSubstFallback($expr)
-	{
-		return ":$expr:";
+		trigger_error(__METHOD__ . '() is deprecated; use dibi::getSubstitutes()->setCallback() instead.', E_USER_WARNING);
+		self::getSubstitutes()->setCallback($callback);
 	}
 
 
@@ -732,8 +688,3 @@ class dibi
 	}
 
 }
-
-
-
-// static constructor
-dibi::$substs = new DibiLazyStorage(array('dibi', 'defaultSubstFallback'));

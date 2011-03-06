@@ -5,8 +5,9 @@
  *
  * Copyright (c) 2005, 2010 David Grudl (http://davidgrudl.com)
  *
- * This source file is subject to the "dibi license", and/or
- * GPL license. For more information please see http://dibiphp.com
+ * For the full copyright and license information, please view
+ * the file license.txt that was distributed with this source code.
+ *
  * @package    dibi\drivers
  */
 
@@ -51,7 +52,6 @@ class DibiMySqlReflector extends DibiObject implements IDibiReflector
 				'view' => isset($row[1]) && $row[1] === 'VIEW',
 			);
 		}
-		$res->free();
 		return $tables;
 	}
 
@@ -86,7 +86,6 @@ class DibiMySqlReflector extends DibiObject implements IDibiReflector
 				'vendor' => $row,
 			);
 		}
-		$res->free();
 		return $columns;
 	}
 
@@ -114,7 +113,6 @@ class DibiMySqlReflector extends DibiObject implements IDibiReflector
 			$indexes[$row['Key_name']]['primary'] = $row['Key_name'] === 'PRIMARY';
 			$indexes[$row['Key_name']]['columns'][$row['Seq_in_index'] - 1] = $row['Column_name'];
 		}
-		$res->free();
 		return array_values($indexes);
 	}
 

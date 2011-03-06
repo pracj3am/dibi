@@ -5,8 +5,9 @@
  *
  * Copyright (c) 2005, 2010 David Grudl (http://davidgrudl.com)
  *
- * This source file is subject to the "dibi license", and/or
- * GPL license. For more information please see http://dibiphp.com
+ * For the full copyright and license information, please view
+ * the file license.txt that was distributed with this source code.
+ *
  * @package    dibi\drivers
  */
 
@@ -33,18 +34,21 @@ class DibiOdbcDriver extends DibiObject implements IDibiDriver, IDibiResultDrive
 	/** @var resource  Resultset resource */
 	private $resultSet;
 
+	/** @var int|FALSE  Affected rows */
+	private $affectedRows = FALSE;
+
 	/** @var int  Cursor */
 	private $row = 0;
 
 
 
 	/**
-	 * @throws DibiException
+	 * @throws NotSupportedException
 	 */
 	public function __construct()
 	{
 		if (!extension_loaded('odbc')) {
-			throw new DibiDriverException("PHP extension 'odbc' is not loaded.");
+			throw new NotSupportedException("PHP extension 'odbc' is not loaded.");
 		}
 	}
 
@@ -98,13 +102,16 @@ class DibiOdbcDriver extends DibiObject implements IDibiDriver, IDibiResultDrive
 	 */
 	public function query($sql)
 	{
-		$this->resultSet = @odbc_exec($this->connection, $sql); // intentionally @
+		$this->affectedRows = FALSE;
+		$res = @odbc_exec($this->connection, $sql); // intentionally @
 
-		if ($this->resultSet === FALSE) {
+		if ($res === FALSE) {
 			throw new DibiDriverException(odbc_errormsg($this->connection) . ' ' . odbc_error($this->connection), 0, $sql);
-		}
 
-		return is_resource($this->resultSet) ? clone $this : NULL;
+		} elseif (is_resource($res)) {
+			$this->affectedRows = odbc_num_rows($res);
+			return $this->createResultDriver($res);
+		}
 	}
 
 
@@ -115,7 +122,7 @@ class DibiOdbcDriver extends DibiObject implements IDibiDriver, IDibiResultDrive
 	 */
 	public function getAffectedRows()
 	{
-		return odbc_num_rows($this->resultSet);
+		return $this->affectedRows;
 	}
 
 
@@ -211,6 +218,20 @@ class DibiOdbcDriver extends DibiObject implements IDibiDriver, IDibiResultDrive
 
 
 
+	/**
+	 * Result set driver factory.
+	 * @param  resource
+	 * @return IDibiResultDriver
+	 */
+	public function createResultDriver($resource)
+	{
+		$res = clone $this;
+		$res->resultSet = $resource;
+		return $res;
+	}
+
+
+
 	/********************* SQL ****************d*g**/
 
 
@@ -293,12 +314,23 @@ class DibiOdbcDriver extends DibiObject implements IDibiDriver, IDibiResultDrive
 			$sql = 'SELECT TOP ' . (int) $limit . ' * FROM (' . $sql . ')';
 		}
 
-		if ($offset) throw new InvalidArgumentException('Offset is not implemented in driver odbc.');
+		if ($offset) throw new NotSupportedException('Offset is not implemented in driver odbc.');
 	}
 
 
 
 	/********************* result set ****************d*g**/
+
+
+
+	/**
+	 * Automatically frees the resources allocated for this result set.
+	 * @return void
+	 */
+	public function __destruct()
+	{
+		$this->resultSet && @$this->free();
+	}
 
 
 

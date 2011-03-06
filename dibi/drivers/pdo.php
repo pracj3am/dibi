@@ -5,10 +5,15 @@
  *
  * Copyright (c) 2005, 2010 David Grudl (http://davidgrudl.com)
  *
- * This source file is subject to the "dibi license", and/or
- * GPL license. For more information please see http://dibiphp.com
+ * For the full copyright and license information, please view
+ * the file license.txt that was distributed with this source code.
+ *
  * @package    dibi\drivers
  */
+
+
+require_once dirname(__FILE__) . '/mysql.reflector.php';
+require_once dirname(__FILE__) . '/sqlite.reflector.php';
 
 
 /**
@@ -42,12 +47,12 @@ class DibiPdoDriver extends DibiObject implements IDibiDriver, IDibiResultDriver
 
 
 	/**
-	 * @throws DibiException
+	 * @throws NotSupportedException
 	 */
 	public function __construct()
 	{
 		if (!extension_loaded('pdo')) {
-			throw new DibiDriverException("PHP extension 'pdo' is not loaded.");
+			throw new NotSupportedException("PHP extension 'pdo' is not loaded.");
 		}
 	}
 
@@ -105,9 +110,9 @@ class DibiPdoDriver extends DibiObject implements IDibiDriver, IDibiResultDriver
 		// must detect if SQL returns result set or num of affected rows
 		$cmd = strtoupper(substr(ltrim($sql), 0, 6));
 		static $list = array('UPDATE'=>1, 'DELETE'=>1, 'INSERT'=>1, 'REPLAC'=>1);
+		$this->affectedRows = FALSE;
 
 		if (isset($list[$cmd])) {
-			$this->resultSet = NULL;
 			$this->affectedRows = $this->connection->exec($sql);
 
 			if ($this->affectedRows === FALSE) {
@@ -115,18 +120,15 @@ class DibiPdoDriver extends DibiObject implements IDibiDriver, IDibiResultDriver
 				throw new DibiDriverException("SQLSTATE[$err[0]]: $err[2]", $err[1], $sql);
 			}
 
-			return NULL;
-
 		} else {
-			$this->resultSet = $this->connection->query($sql);
-			$this->affectedRows = FALSE;
+			$res = $this->connection->query($sql);
 
-			if ($this->resultSet === FALSE) {
+			if ($res === FALSE) {
 				$err = $this->connection->errorInfo();
 				throw new DibiDriverException("SQLSTATE[$err[0]]: $err[2]", $err[1], $sql);
+			} else {
+				return $this->createResultDriver($res);
 			}
-
-			return clone $this;
 		}
 	}
 
@@ -219,7 +221,31 @@ class DibiPdoDriver extends DibiObject implements IDibiDriver, IDibiResultDriver
 	 */
 	public function getReflector()
 	{
-		throw new NotSupportedException;
+		switch ($this->driverName) {
+		case 'mysql':
+			return new DibiMySqlReflector($this);
+
+		case 'sqlite':
+		case 'sqlite2':
+			return new DibiSqliteReflector($this);
+
+		default:
+			throw new NotSupportedException;
+		}
+	}
+
+
+
+	/**
+	 * Result set driver factory.
+	 * @param  PDOStatement
+	 * @return IDibiResultDriver
+	 */
+	public function createResultDriver(PDOStatement $resource)
+	{
+		$res = clone $this;
+		$res->resultSet = $resource;
+		return $res;
 	}
 
 
@@ -423,7 +449,7 @@ class DibiPdoDriver extends DibiObject implements IDibiDriver, IDibiResultDriver
 		for ($i = 0; $i < $count; $i++) {
 			$row = @$this->resultSet->getColumnMeta($i); // intentionally @
 			if ($row === FALSE) {
-				throw new DibiDriverException('Driver does not support meta data.');
+				throw new NotSupportedException('Driver does not support meta data.');
 			}
 			// PHP < 5.2.3 compatibility
 			// @see: http://php.net/manual/en/pdostatement.getcolumnmeta.php#pdostatement.getcolumnmeta.changelog

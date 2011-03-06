@@ -5,8 +5,9 @@
  *
  * Copyright (c) 2005, 2010 David Grudl (http://davidgrudl.com)
  *
- * This source file is subject to the "dibi license", and/or
- * GPL license. For more information please see http://dibiphp.com
+ * For the full copyright and license information, please view
+ * the file license.txt that was distributed with this source code.
+ *
  * @package    dibi
  */
 
@@ -94,7 +95,7 @@ class DibiFluent extends DibiObject implements IDataSource
 	/** @var array */
 	private $cursor;
 
-	/** @var DibiLazyStorage  normalized clauses */
+	/** @var DibiHashMap  normalized clauses */
 	private static $normalizer;
 
 
@@ -107,7 +108,7 @@ class DibiFluent extends DibiObject implements IDataSource
 		$this->connection = $connection;
 
 		if (self::$normalizer === NULL) {
-			self::$normalizer = new DibiLazyStorage(array(__CLASS__, '_formatClause'));
+			self::$normalizer = new DibiHashMap(array(__CLASS__, '_formatClause'));
 		}
 	}
 

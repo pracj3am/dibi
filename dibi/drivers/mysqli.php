@@ -5,8 +5,9 @@
  *
  * Copyright (c) 2005, 2010 David Grudl (http://davidgrudl.com)
  *
- * This source file is subject to the "dibi license", and/or
- * GPL license. For more information please see http://dibiphp.com
+ * For the full copyright and license information, please view
+ * the file license.txt that was distributed with this source code.
+ *
  * @package    dibi\drivers
  */
 
@@ -54,12 +55,12 @@ class DibiMySqliDriver extends DibiObject implements IDibiDriver, IDibiResultDri
 
 
 	/**
-	 * @throws DibiException
+	 * @throws NotSupportedException
 	 */
 	public function __construct()
 	{
 		if (!extension_loaded('mysqli')) {
-			throw new DibiDriverException("PHP extension 'mysqli' is not loaded.");
+			throw new NotSupportedException("PHP extension 'mysqli' is not loaded.");
 		}
 	}
 
@@ -108,7 +109,7 @@ class DibiMySqliDriver extends DibiObject implements IDibiDriver, IDibiResultDri
 					}
 				}
 			}
-			@mysqli_real_connect($this->connection, $config['host'], $config['username'], $config['password'], $config['database'], $config['port'], $config['socket'], $config['flags']); // intentionally @
+			@mysqli_real_connect($this->connection, (empty($config['persistent']) ? '' : 'p:') . $config['host'], $config['username'], $config['password'], $config['database'], $config['port'], $config['socket'], $config['flags']); // intentionally @
 
 			if ($errno = mysqli_connect_errno()) {
 				throw new DibiDriverException(mysqli_connect_error(), $errno);
@@ -156,13 +157,14 @@ class DibiMySqliDriver extends DibiObject implements IDibiDriver, IDibiResultDri
 	 */
 	public function query($sql)
 	{
-		$this->resultSet = @mysqli_query($this->connection, $sql, $this->buffered ? MYSQLI_STORE_RESULT : MYSQLI_USE_RESULT); // intentionally @
+		$res = @mysqli_query($this->connection, $sql, $this->buffered ? MYSQLI_STORE_RESULT : MYSQLI_USE_RESULT); // intentionally @
 
 		if (mysqli_errno($this->connection)) {
 			throw new DibiDriverException(mysqli_error($this->connection), mysqli_errno($this->connection), $sql);
-		}
 
-		return is_object($this->resultSet) ? clone $this : NULL;
+		} elseif (is_object($res)) {
+			return $this->createResultDriver($res);
+		}
 	}
 
 
@@ -201,7 +203,7 @@ class DibiMySqliDriver extends DibiObject implements IDibiDriver, IDibiResultDri
 	{
 		$res = array();
 		preg_match_all('#(.+?): +(\d+) *#', mysqli_info($this->connection), $matches, PREG_SET_ORDER);
-		if (preg_last_error()) throw new PcreException;
+		if (preg_last_error()) throw new DibiPcreException;
 
 		foreach ($matches as $m) {
 			$res[$m[1]] = (int) $m[2];
@@ -290,6 +292,20 @@ class DibiMySqliDriver extends DibiObject implements IDibiDriver, IDibiResultDri
 	public function getReflector()
 	{
 		return new DibiMySqlReflector($this);
+	}
+
+
+
+	/**
+	 * Result set driver factory.
+	 * @param  mysqli_result
+	 * @return IDibiResultDriver
+	 */
+	public function createResultDriver(mysqli_result $resource)
+	{
+		$res = clone $this;
+		$res->resultSet = $resource;
+		return $res;
 	}
 
 
@@ -387,13 +403,24 @@ class DibiMySqliDriver extends DibiObject implements IDibiDriver, IDibiResultDri
 
 
 	/**
+	 * Automatically frees the resources allocated for this result set.
+	 * @return void
+	 */
+	public function __destruct()
+	{
+		$this->resultSet && @$this->free();
+	}
+
+
+
+	/**
 	 * Returns the number of rows in a result set.
 	 * @return int
 	 */
 	public function getRowCount()
 	{
 		if (!$this->buffered) {
-			throw new DibiDriverException('Row count is not available for unbuffered queries.');
+			throw new NotSupportedException('Row count is not available for unbuffered queries.');
 		}
 		return mysqli_num_rows($this->resultSet);
 	}
@@ -421,7 +448,7 @@ class DibiMySqliDriver extends DibiObject implements IDibiDriver, IDibiResultDri
 	public function seek($row)
 	{
 		if (!$this->buffered) {
-			throw new DibiDriverException('Cannot seek an unbuffered result set.');
+			throw new NotSupportedException('Cannot seek an unbuffered result set.');
 		}
 		return mysqli_data_seek($this->resultSet, $row);
 	}

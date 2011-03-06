@@ -5,8 +5,9 @@
  *
  * Copyright (c) 2005, 2010 David Grudl (http://davidgrudl.com)
  *
- * This source file is subject to the "dibi license", and/or
- * GPL license. For more information please see http://dibiphp.com
+ * For the full copyright and license information, please view
+ * the file license.txt that was distributed with this source code.
+ *
  * @package    dibi\drivers
  */
 
@@ -37,12 +38,12 @@ class DibiMsSqlDriver extends DibiObject implements IDibiDriver, IDibiResultDriv
 
 
 	/**
-	 * @throws DibiException
+	 * @throws NotSupportedException
 	 */
 	public function __construct()
 	{
 		if (!extension_loaded('mssql')) {
-			throw new DibiDriverException("PHP extension 'mssql' is not loaded.");
+			throw new NotSupportedException("PHP extension 'mssql' is not loaded.");
 		}
 	}
 
@@ -93,13 +94,14 @@ class DibiMsSqlDriver extends DibiObject implements IDibiDriver, IDibiResultDriv
 	 */
 	public function query($sql)
 	{
-		$this->resultSet = @mssql_query($sql, $this->connection); // intentionally @
+		$res = @mssql_query($sql, $this->connection); // intentionally @
 
-		if ($this->resultSet === FALSE) {
+		if ($res === FALSE) {
 			throw new DibiDriverException(mssql_get_last_message(), 0, $sql);
-		}
 
-		return is_resource($this->resultSet) ? clone $this : NULL;
+		} elseif (is_resource($res)) {
+			return $this->createResultDriver($res);
+		}
 	}
 
 
@@ -188,6 +190,20 @@ class DibiMsSqlDriver extends DibiObject implements IDibiDriver, IDibiResultDriv
 	public function getReflector()
 	{
 		throw new NotSupportedException;
+	}
+
+
+
+	/**
+	 * Result set driver factory.
+	 * @param  resource
+	 * @return IDibiResultDriver
+	 */
+	public function createResultDriver($resource)
+	{
+		$res = clone $this;
+		$res->resultSet = $resource;
+		return $res;
 	}
 
 
@@ -283,6 +299,17 @@ class DibiMsSqlDriver extends DibiObject implements IDibiDriver, IDibiResultDriv
 
 
 	/********************* result set ****************d*g**/
+
+
+
+	/**
+	 * Automatically frees the resources allocated for this result set.
+	 * @return void
+	 */
+	public function __destruct()
+	{
+		$this->resultSet && @$this->free();
+	}
 
 
 

@@ -5,8 +5,9 @@
  *
  * Copyright (c) 2005, 2010 David Grudl (http://davidgrudl.com)
  *
- * This source file is subject to the "dibi license", and/or
- * GPL license. For more information please see http://dibiphp.com
+ * For the full copyright and license information, please view
+ * the file license.txt that was distributed with this source code.
+ *
  * @package    dibi
  */
 
@@ -74,17 +75,6 @@ class DibiResult extends DibiObject implements IDataSource
 		if (!empty($config['formatDateTime'])) {
 			$this->dateFormat = is_string($config['formatDateTime']) ? $config['formatDateTime'] : '';
 		}
-	}
-
-
-
-	/**
-	 * Automatically frees the resources allocated for this result set.
-	 * @return void
-	 */
-	public function __destruct()
-	{
-		@$this->free(); // intentionally @
 	}
 
 
@@ -175,6 +165,7 @@ class DibiResult extends DibiObject implements IDataSource
 	 */
 	final public function rowCount()
 	{
+		trigger_error(__METHOD__ . '() is deprecated; use count($res) or $res->getRowCount() instead.', E_USER_WARNING);
 		return $this->getDriver()->getRowCount();
 	}
 
@@ -584,7 +575,7 @@ class DibiResult extends DibiObject implements IDataSource
 			return $this->getDriver()->unescape($value, $type);
 
 		case dibi::INTEGER:
-			return (int) $value;
+			return is_float($tmp = $value * 1) ? $value : $tmp;
 
 		case dibi::FLOAT:
 			return (float) $value;
@@ -595,7 +586,7 @@ class DibiResult extends DibiObject implements IDataSource
 				return NULL;
 
 			} elseif ($this->dateFormat === '') { // return DateTime object (default)
-				return new DateTime53(is_numeric($value) ? date('Y-m-d H:i:s', $value) : $value);
+				return new DibiDateTime(is_numeric($value) ? date('Y-m-d H:i:s', $value) : $value);
 
 			} elseif ($this->dateFormat === 'U') { // return timestamp
 				return is_numeric($value) ? (int) $value : strtotime($value);
@@ -604,7 +595,7 @@ class DibiResult extends DibiObject implements IDataSource
 				return date($this->dateFormat, $value);
 
 			} else {
-				$value = new DateTime53($value);
+				$value = new DibiDateTime($value);
 				return $value->format($this->dateFormat);
 			}
 
@@ -647,6 +638,7 @@ class DibiResult extends DibiObject implements IDataSource
 	 */
 	public function getColumnNames($fullNames = FALSE)
 	{
+		trigger_error(__METHOD__ . '() is deprecated; use $res->getInfo()->getColumnNames() instead.', E_USER_WARNING);
 		return $this->getInfo()->getColumnNames($fullNames);
 	}
 

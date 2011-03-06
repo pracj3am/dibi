@@ -5,8 +5,9 @@
  *
  * Copyright (c) 2005, 2010 David Grudl (http://davidgrudl.com)
  *
- * This source file is subject to the "dibi license", and/or
- * GPL license. For more information please see http://dibiphp.com
+ * For the full copyright and license information, please view
+ * the file license.txt that was distributed with this source code.
+ *
  * @package    dibi
  */
 
@@ -41,6 +42,9 @@ class DibiConnection extends DibiObject
 
 	/** @var bool  Is connected? */
 	private $connected = FALSE;
+
+	/** @var DibiHashMap Substitutes for identifiers */
+	private $substitutes;
 
 
 
@@ -99,7 +103,7 @@ class DibiConnection extends DibiObject
 		$config['name'] = $name;
 		$this->config = $config;
 		$this->driver = new $class;
-		$this->translator = new DibiTranslator($this->driver);
+		$this->translator = new DibiTranslator($this);
 
 		// profiler
 		$profilerCfg = & $config['profiler'];
@@ -111,6 +115,7 @@ class DibiConnection extends DibiObject
 		}
 
 		if (!empty($profilerCfg['run'])) {
+			class_exists('dibi'); // ensure dibi.php is processed
 			$class = isset($profilerCfg['class']) ? $profilerCfg['class'] : 'DibiProfiler';
 			if (!class_exists($class)) {
 				throw new DibiException("Unable to create instance of dibi profiler '$class'.");
@@ -118,9 +123,10 @@ class DibiConnection extends DibiObject
 			$this->setProfiler(new $class($profilerCfg));
 		}
 
+		$this->substitutes = new DibiHashMap(create_function('$expr', 'return ":$expr:";'));
 		if (!empty($config['substitutes'])) {
 			foreach ($config['substitutes'] as $key => $value) {
-				dibi::addSubst($key, $value);
+				$this->substitutes->$key = $value;
 			}
 		}
 
@@ -246,35 +252,22 @@ class DibiConnection extends DibiObject
 	 */
 	final public function query($args)
 	{
-		$this->connected || $this->connect();
 		$args = func_get_args();
-		return $this->nativeQuery($this->translator->translate($args));
+		return $this->nativeQuery($this->translateArgs($args));
 	}
 
 
 
 	/**
-	 * Generates and returns SQL query.
+	 * Generates SQL query.
 	 * @param  array|mixed      one or more arguments
 	 * @return string
 	 * @throws DibiException
 	 */
 	final public function translate($args)
 	{
-		$this->connected || $this->connect();
 		$args = func_get_args();
-		return $this->translator->translate($args);
-	}
-
-
-
-	/** @deprecated */
-	function sql($args)
-	{
-		trigger_error(__METHOD__ . '() is deprecated; use translate() instead.', E_USER_NOTICE);
-		$this->connected || $this->connect();
-		$args = func_get_args();
-		return $this->translator->translate($args);
+		return $this->translateArgs($args);
 	}
 
 
@@ -286,10 +279,9 @@ class DibiConnection extends DibiObject
 	 */
 	final public function test($args)
 	{
-		$this->connected || $this->connect();
 		$args = func_get_args();
 		try {
-			dibi::dump($this->translator->translate($args));
+			dibi::dump($this->translateArgs($args));
 			return TRUE;
 
 		} catch (DibiException $e) {
@@ -308,9 +300,21 @@ class DibiConnection extends DibiObject
 	 */
 	final public function dataSource($args)
 	{
-		$this->connected || $this->connect();
 		$args = func_get_args();
-		return new DibiDataSource($this->translator->translate($args), $this);
+		return new DibiDataSource($this->translateArgs($args), $this);
+	}
+
+
+
+	/**
+	 * Generates SQL query.
+	 * @param  array
+	 * @return string
+	 */
+	private function translateArgs($args)
+	{
+		$this->connected || $this->connect();
+		return $this->translator->translate($args);
 	}
 
 
@@ -327,7 +331,7 @@ class DibiConnection extends DibiObject
 
 		if ($this->profiler !== NULL) {
 			$event = IDibiProfiler::QUERY;
-			if (preg_match('#\s*(SELECT|UPDATE|INSERT|DELETE)#i', $sql, $matches)) {
+			if (preg_match('#\s*(SELECT|UPDATE|INSERT|DELETE)#iA', $sql, $matches)) {
 				static $events = array(
 					'SELECT' => IDibiProfiler::SELECT, 'UPDATE' => IDibiProfiler::UPDATE,
 					'INSERT' => IDibiProfiler::INSERT, 'DELETE' => IDibiProfiler::DELETE,
@@ -339,7 +343,7 @@ class DibiConnection extends DibiObject
 
 		dibi::$sql = $sql;
 		if ($res = $this->driver->query($sql)) { // intentionally =
-			$res = new DibiResult($res, $this->config['result']);
+			$res = $this->createResultSet($res);
 		} else {
 			$res = $this->driver->getAffectedRows();
 		}
@@ -465,6 +469,18 @@ class DibiConnection extends DibiObject
 
 
 
+	/**
+	 * Result set factory.
+	 * @param  IDibiResultDriver
+	 * @return DibiResult
+	 */
+	public function createResultSet(IDibiResultDriver $resultDriver)
+	{
+		return new DibiResult($resultDriver, $this->config['result']);
+	}
+
+
+
 	/********************* fluent SQL builders ****************d*g**/
 
 
@@ -557,6 +573,42 @@ class DibiConnection extends DibiObject
 	public function getProfiler()
 	{
 		return $this->profiler;
+	}
+
+
+
+	/********************* substitutions ****************d*g**/
+
+
+
+	/**
+	 * Returns substitution hashmap.
+	 * @return DibiHashMap
+	 */
+	public function getSubstitutes()
+	{
+		return $this->substitutes;
+	}
+
+
+
+	/**
+	 * Provides substitution.
+	 * @return string
+	 */
+	public function substitute($value)
+	{
+		return strpos($value, ':') === FALSE ? $value : preg_replace_callback('#:([^:\s]*):#', array($this, 'subCb'), $value);
+	}
+
+
+
+	/**
+	 * Substitution callback.
+	 */
+	private function subCb($m)
+	{
+		return $this->substitutes->{$m[1]};
 	}
 
 

@@ -5,20 +5,21 @@
  *
  * Copyright (c) 2005, 2010 David Grudl (http://davidgrudl.com)
  *
- * This source file is subject to the "dibi license", and/or
- * GPL license. For more information please see http://dibiphp.com
+ * For the full copyright and license information, please view
+ * the file license.txt that was distributed with this source code.
+ *
  * @package    dibi
  */
 
 
 
-/**#@+
+/**
  * Lazy cached storage.
  *
  * @author     David Grudl
  * @internal
  */
-abstract class DibiLazyStorageBase
+abstract class DibiHashMapBase
 {
 	private $callback;
 
@@ -50,7 +51,13 @@ abstract class DibiLazyStorageBase
 
 
 
-final class DibiLazyStorage extends DibiLazyStorageBase
+/**
+ * Lazy cached storage.
+ *
+ * @author     David Grudl
+ * @internal
+ */
+final class DibiHashMap extends DibiHashMapBase
 {
 
 	public function __set($nm, $val)
@@ -74,4 +81,3 @@ final class DibiLazyStorage extends DibiLazyStorageBase
 	}
 
 }
-/**#@-*/

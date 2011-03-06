@@ -5,8 +5,9 @@
  *
  * Copyright (c) 2005, 2010 David Grudl (http://davidgrudl.com)
  *
- * This source file is subject to the "dibi license", and/or
- * GPL license. For more information please see http://dibiphp.com
+ * For the full copyright and license information, please view
+ * the file license.txt that was distributed with this source code.
+ *
  * @package    dibi\drivers
  */
 
@@ -35,15 +36,18 @@ class DibiMsSql2005Driver extends DibiObject implements IDibiDriver, IDibiResult
 	/** @var resource  Resultset resource */
 	private $resultSet;
 
+	/** @var int|FALSE  Affected rows */
+	private $affectedRows = FALSE;
+
 
 
 	/**
-	 * @throws DibiException
+	 * @throws NotSupportedException
 	 */
 	public function __construct()
 	{
 		if (!extension_loaded('sqlsrv')) {
-			throw new DibiDriverException("PHP extension 'sqlsrv' is not loaded.");
+			throw new NotSupportedException("PHP extension 'sqlsrv' is not loaded.");
 		}
 	}
 
@@ -59,6 +63,7 @@ class DibiMsSql2005Driver extends DibiObject implements IDibiDriver, IDibiResult
 		DibiConnection::alias($config, 'options|UID', 'username');
 		DibiConnection::alias($config, 'options|PWD', 'password');
 		DibiConnection::alias($config, 'options|Database', 'database');
+		DibiConnection::alias($config, 'options|CharacterSet', 'charset');
 
 		if (isset($config['resource'])) {
 			$this->connection = $config['resource'];
@@ -94,14 +99,17 @@ class DibiMsSql2005Driver extends DibiObject implements IDibiDriver, IDibiResult
 	 */
 	public function query($sql)
 	{
-		$this->resultSet = sqlsrv_query($this->connection, $sql);
+		$this->affectedRows = FALSE;
+		$res = sqlsrv_query($this->connection, $sql);
 
-		if ($this->resultSet === FALSE) {
+		if ($res === FALSE) {
 			$info = sqlsrv_errors();
 			throw new DibiDriverException($info[0]['message'], $info[0]['code'], $sql);
-		}
 
-		return is_resource($this->resultSet) ? clone $this : NULL;
+		} elseif (is_resource($res)) {
+			$this->affectedRows = sqlsrv_rows_affected($res);
+			return $this->createResultDriver($res);
+		}
 	}
 
 
@@ -112,7 +120,7 @@ class DibiMsSql2005Driver extends DibiObject implements IDibiDriver, IDibiResult
 	 */
 	public function getAffectedRows()
 	{
-		return sqlsrv_rows_affected($this->resultSet);
+		return $this->affectedRows;
 	}
 
 
@@ -190,6 +198,20 @@ class DibiMsSql2005Driver extends DibiObject implements IDibiDriver, IDibiResult
 	public function getReflector()
 	{
 		throw new NotSupportedException;
+	}
+
+
+
+	/**
+	 * Result set driver factory.
+	 * @param  resource
+	 * @return IDibiResultDriver
+	 */
+	public function createResultDriver($resource)
+	{
+		$res = clone $this;
+		$res->resultSet = $resource;
+		return $res;
 	}
 
 
@@ -285,6 +307,17 @@ class DibiMsSql2005Driver extends DibiObject implements IDibiDriver, IDibiResult
 
 
 	/********************* result set ****************d*g**/
+
+
+
+	/**
+	 * Automatically frees the resources allocated for this result set.
+	 * @return void
+	 */
+	public function __destruct()
+	{
+		$this->resultSet && @$this->free();
+	}
 
 
 

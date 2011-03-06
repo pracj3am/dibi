@@ -5,8 +5,9 @@
  *
  * Copyright (c) 2005, 2010 David Grudl (http://davidgrudl.com)
  *
- * This source file is subject to the "dibi license", and/or
- * GPL license. For more information please see http://dibiphp.com
+ * For the full copyright and license information, please view
+ * the file license.txt that was distributed with this source code.
+ *
  * @package    dibi\drivers
  */
 
@@ -34,18 +35,21 @@ class DibiPostgreDriver extends DibiObject implements IDibiDriver, IDibiResultDr
 	/** @var resource  Resultset resource */
 	private $resultSet;
 
+	/** @var int|FALSE  Affected rows */
+	private $affectedRows = FALSE;
+
 	/** @var bool  Escape method */
 	private $escMethod = FALSE;
 
 
 
 	/**
-	 * @throws DibiException
+	 * @throws NotSupportedException
 	 */
 	public function __construct()
 	{
 		if (!extension_loaded('pgsql')) {
-			throw new DibiDriverException("PHP extension 'pgsql' is not loaded.");
+			throw new NotSupportedException("PHP extension 'pgsql' is not loaded.");
 		}
 	}
 
@@ -125,13 +129,18 @@ class DibiPostgreDriver extends DibiObject implements IDibiDriver, IDibiResultDr
 	 */
 	public function query($sql)
 	{
-		$this->resultSet = @pg_query($this->connection, $sql); // intentionally @
+		$this->affectedRows = FALSE;
+		$res = @pg_query($this->connection, $sql); // intentionally @
 
-		if ($this->resultSet === FALSE) {
+		if ($res === FALSE) {
 			throw new DibiDriverException(pg_last_error($this->connection), 0, $sql);
-		}
 
-		return is_resource($this->resultSet) && pg_num_fields($this->resultSet) ? clone $this : NULL;
+		} elseif (is_resource($res)) {
+			$this->affectedRows = pg_affected_rows($res);
+			if (pg_num_fields($res)) {
+				return $this->createResultDriver($res);
+			}
+		}
 	}
 
 
@@ -142,7 +151,7 @@ class DibiPostgreDriver extends DibiObject implements IDibiDriver, IDibiResultDr
 	 */
 	public function getAffectedRows()
 	{
-		return pg_affected_rows($this->resultSet);
+		return $this->affectedRows;
 	}
 
 
@@ -163,7 +172,6 @@ class DibiPostgreDriver extends DibiObject implements IDibiDriver, IDibiResultDr
 		if (!$res) return FALSE;
 
 		$row = $res->fetch(FALSE);
-		$res->free();
 		return is_array($row) ? $row[0] : FALSE;
 	}
 
@@ -237,6 +245,20 @@ class DibiPostgreDriver extends DibiObject implements IDibiDriver, IDibiResultDr
 	public function getReflector()
 	{
 		return $this;
+	}
+
+
+
+	/**
+	 * Result set driver factory.
+	 * @param  resource
+	 * @return IDibiResultDriver
+	 */
+	public function createResultDriver($resource)
+	{
+		$res = clone $this;
+		$res->resultSet = $resource;
+		return $res;
 	}
 
 
@@ -342,6 +364,17 @@ class DibiPostgreDriver extends DibiObject implements IDibiDriver, IDibiResultDr
 
 
 	/**
+	 * Automatically frees the resources allocated for this result set.
+	 * @return void
+	 */
+	public function __destruct()
+	{
+		$this->resultSet && @$this->free();
+	}
+
+
+
+	/**
 	 * Returns the number of rows in a result set.
 	 * @return int
 	 */
@@ -443,7 +476,6 @@ class DibiPostgreDriver extends DibiObject implements IDibiDriver, IDibiResultDr
 			WHERE table_schema = current_schema()
 		");
 		$tables = pg_fetch_all($res->resultSet);
-		$res->free();
 		return $tables ? $tables : array();
 	}
 
@@ -485,7 +517,6 @@ class DibiPostgreDriver extends DibiObject implements IDibiDriver, IDibiResultDr
 				'vendor' => $row,
 			);
 		}
-		$res->free();
 		return $columns;
 	}
 
@@ -528,7 +559,6 @@ class DibiPostgreDriver extends DibiObject implements IDibiDriver, IDibiResultDr
 				$indexes[$row['relname']]['columns'][] = $columns[$index];
 			}
 		}
-		$res->free();
 		return array_values($indexes);
 	}
 

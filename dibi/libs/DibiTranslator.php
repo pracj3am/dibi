@@ -5,8 +5,9 @@
  *
  * Copyright (c) 2005, 2010 David Grudl (http://davidgrudl.com)
  *
- * This source file is subject to the "dibi license", and/or
- * GPL license. For more information please see http://dibiphp.com
+ * For the full copyright and license information, please view
+ * the file license.txt that was distributed with this source code.
+ *
  * @package    dibi
  */
 
@@ -19,6 +20,9 @@
  */
 final class DibiTranslator extends DibiObject
 {
+	/** @var DibiConnection */
+	private $connection;
+
 	/** @var IDibiDriver */
 	private $driver;
 
@@ -46,14 +50,14 @@ final class DibiTranslator extends DibiObject
 	/** @var int */
 	private $offset;
 
-	/** @var DibiLazyStorage */
+	/** @var DibiHashMap */
 	private $identifiers;
 
 
 
-	public function __construct(IDibiDriver $driver)
+	public function __construct(DibiConnection $connection)
 	{
-		$this->driver = $driver;
+		$this->connection = $connection;
 	}
 
 
@@ -66,7 +70,9 @@ final class DibiTranslator extends DibiObject
 	 */
 	public function translate(array $args)
 	{
-		$this->identifiers = new DibiLazyStorage(array($this, 'delimite'));
+		$this->identifiers = new DibiHashMap(array($this, 'delimite'));
+		$this->driver = $this->connection->getDriver();
+
 		$args = array_values($args);
 		while (count($args) === 1 && is_array($args[0])) { // implicit array expansion
 			$args = array_values($args[0]);
@@ -121,7 +127,7 @@ final class DibiTranslator extends DibiObject
 							array($this, 'cb'),
 							substr($arg, $toSkip)
 					);
-					if (preg_last_error()) throw new PcreException;
+					if (preg_last_error()) throw new DibiPcreException;
 				}
 				continue;
 			}
@@ -182,6 +188,10 @@ final class DibiTranslator extends DibiObject
 	 */
 	public function formatValue($value, $modifier)
 	{
+		if ($this->comment) {
+			return "...";
+		}
+
 		// array processing (with or without modifier)
 		if ($value instanceof Traversable) {
 			$value = iterator_to_array($value);
@@ -299,7 +309,7 @@ final class DibiTranslator extends DibiObject
 
 			case 'ex':
 			case 'sql':
-				$translator = new self($this->driver);
+				$translator = new self($this->connection);
 				return $translator->translate($value);
 
 			default:  // value, value, value - all with the same modifier
@@ -380,7 +390,7 @@ final class DibiTranslator extends DibiObject
 						array($this, 'cb'),
 						substr($value, $toSkip)
 					);
-					if (preg_last_error()) throw new PcreException;
+					if (preg_last_error()) throw new DibiPcreException;
 				}
 				return $value;
 
@@ -429,6 +439,9 @@ final class DibiTranslator extends DibiObject
 
 		} elseif ($value instanceof DateTime) {
 			return $this->driver->escape($value, dibi::DATETIME);
+
+		} elseif ($value instanceof IDibiVariable) {
+			return (string) $value->toSql();
 
 		} else {
 			$this->hasError = TRUE;
@@ -552,7 +565,7 @@ final class DibiTranslator extends DibiObject
 
 		if ($matches[8]) { // SQL identifier substitution
 			$m = substr($matches[8], 0, -1);
-			$m = dibi::$substs->$m;
+			$m = $this->connection->getSubstitutes()->$m;
 			$pair = explode('%', $m, 2); // split into substituent & modifier
 			return $matches[9] == '' ? $this->formatValue($pair[0], isset($pair[1]) ? $pair[1] : FALSE) : $m . $matches[9]; // value or identifier
 		}
@@ -570,40 +583,12 @@ final class DibiTranslator extends DibiObject
 	 */
 	public function delimite($value)
 	{
-		$value = self::substitute($value);
+		$value = $this->connection->substitute($value);
 		$parts = explode('.', $value);
 		foreach ($parts as & $v) {
 			if ($v !== '*') $v = $this->driver->escape($v, dibi::IDENTIFIER);
 		}
 		return implode('.', $parts);
-	}
-
-
-
-	/**
-	 * Provides substitution.
-	 * @return string
-	 */
-	public static function substitute($value)
-	{
-		if (strpos($value, ':') !== FALSE) { // provide substitution
-			return preg_replace_callback('#:([^:\s]*):#', array(__CLASS__, 'subCb'), $value);
-		}
-		return $value;
-	}
-
-
-
-	/**
-	 * Substitution callback.
-	 * @param  array
-	 * @return string
-	 */
-	private static function subCb($m)
-	{
-		$m = dibi::$substs->{$m[1]};
-		$pair = explode('%', $m, 2); // split into substituent & modifier
-		return $pair[0]; //modifier has no purpose in this context
 	}
 
 }

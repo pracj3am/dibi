@@ -5,8 +5,9 @@
  *
  * Copyright (c) 2005, 2010 David Grudl (http://davidgrudl.com)
  *
- * This source file is subject to the "dibi license", and/or
- * GPL license. For more information please see http://dibiphp.com
+ * For the full copyright and license information, please view
+ * the file license.txt that was distributed with this source code.
+ *
  * @package    dibi
  */
 
@@ -263,7 +264,7 @@ class DibiDataSource extends DibiObject implements IDataSource
 	 */
 	public function toFluent()
 	{
-		return $this->connection->select('*')->from('(%SQL) AS t', $this->__toString());
+		return $this->connection->select('*')->from('(%SQL) t', $this->__toString());
 	}
 
 
@@ -309,7 +310,7 @@ class DibiDataSource extends DibiObject implements IDataSource
 		if ($this->count === NULL) {
 			$this->count = $this->conds || $this->offset || $this->limit
 				? (int) $this->connection->nativeQuery(
-					'SELECT COUNT(*) FROM (' . $this->__toString() . ') AS t'
+					'SELECT COUNT(*) FROM (' . $this->__toString() . ') t'
 				)->fetchSingle()
 				: $this->getTotalCount();
 		}

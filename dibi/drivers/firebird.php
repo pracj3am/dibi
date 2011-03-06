@@ -5,8 +5,9 @@
  *
  * Copyright (c) 2005, 2010 David Grudl (http://davidgrudl.com)
  *
- * This source file is subject to the "dibi license", and/or
- * GPL license. For more information please see http://dibiphp.com
+ * For the full copyright and license information, please view
+ * the file license.txt that was distributed with this source code.
+ *
  * @package    dibi\drivers
  */
 
@@ -44,12 +45,12 @@ class DibiFirebirdDriver extends DibiObject implements IDibiDriver, IDibiResultD
 
 
 	/**
-	 * @throws DibiException
+	 * @throws NotSupportedException
 	 */
 	public function __construct()
 	{
 		if (!extension_loaded('interbase')) {
-			throw new DibiDriverException("PHP extension 'interbase' is not loaded.");
+			throw new NotSupportedException("PHP extension 'interbase' is not loaded.");
 		}
 	}
 
@@ -115,7 +116,7 @@ class DibiFirebirdDriver extends DibiObject implements IDibiDriver, IDibiResultD
 	{
 		DibiDriverException::tryError();
 		$resource = $this->inTransaction ? $this->transaction : $this->connection;
-		$this->resultSet = ibase_query($resource, $sql);
+		$res = ibase_query($resource, $sql);
 
 		if (DibiDriverException::catchError($msg)) {
 			if (ibase_errcode() == self::ERROR_EXCEPTION_THROWN) {
@@ -127,11 +128,12 @@ class DibiFirebirdDriver extends DibiObject implements IDibiDriver, IDibiResultD
 			}
 		}
 
-		if ($this->resultSet === FALSE) {
+		if ($res === FALSE) {
 			throw new DibiDriverException(ibase_errmsg(), ibase_errcode(), $sql);
-		}
 
-		return is_resource($this->resultSet) ? clone $this : NULL;
+		} elseif (is_resource($res)) {
+			return $this->createResultDriver($res);
+		}
 	}
 
 
@@ -168,7 +170,7 @@ class DibiFirebirdDriver extends DibiObject implements IDibiDriver, IDibiResultD
 	public function begin($savepoint = NULL)
 	{
 		if ($savepoint !== NULL) {
-			throw new DibiDriverException('Savepoints are not supported in Firebird/Interbase.');
+			throw new NotSupportedException('Savepoints are not supported in Firebird/Interbase.');
 		}
 		$this->transaction = ibase_trans($this->resource);
 		$this->inTransaction = TRUE;
@@ -185,11 +187,11 @@ class DibiFirebirdDriver extends DibiObject implements IDibiDriver, IDibiResultD
 	public function commit($savepoint = NULL)
 	{
 		if ($savepoint !== NULL) {
-			throw new DibiDriverException('Savepoints are not supported in Firebird/Interbase.');
+			throw new NotSupportedException('Savepoints are not supported in Firebird/Interbase.');
 		}
 
 		if (!ibase_commit($this->transaction)) {
-			DibiDriverException('Unable to handle operation - failure when commiting transaction.');
+			throw new DibiDriverException('Unable to handle operation - failure when commiting transaction.');
 		}
 
 		$this->inTransaction = FALSE;
@@ -206,11 +208,11 @@ class DibiFirebirdDriver extends DibiObject implements IDibiDriver, IDibiResultD
 	public function rollback($savepoint = NULL)
 	{
 		if ($savepoint !== NULL) {
-			throw new DibiDriverException('Savepoints are not supported in Firebird/Interbase.');
+			throw new NotSupportedException('Savepoints are not supported in Firebird/Interbase.');
 		}
 
 		if (!ibase_rollback($this->transaction)) {
-			DibiDriverException('Unable to handle operation - failure when rolbacking transaction.');
+			throw new DibiDriverException('Unable to handle operation - failure when rolbacking transaction.');
 		}
 
 		$this->inTransaction = FALSE;
@@ -236,6 +238,31 @@ class DibiFirebirdDriver extends DibiObject implements IDibiDriver, IDibiResultD
 	public function getResource()
 	{
 		return $this->connection;
+	}
+
+
+
+	/**
+	 * Returns the connection reflector.
+	 * @return IDibiReflector
+	 */
+	public function getReflector()
+	{
+		return $this;
+	}
+
+
+
+	/**
+	 * Result set driver factory.
+	 * @param  resource
+	 * @return IDibiResultDriver
+	 */
+	public function createResultDriver($resource)
+	{
+		$res = clone $this;
+		$res->resultSet = $resource;
+		return $res;
 	}
 
 
@@ -329,6 +356,17 @@ class DibiFirebirdDriver extends DibiObject implements IDibiDriver, IDibiResultD
 
 
 	/**
+	 * Automatically frees the resources allocated for this result set.
+	 * @return void
+	 */
+	public function __destruct()
+	{
+		$this->resultSet && @$this->free();
+	}
+
+
+
+	/**
 	 * Returns the number of rows in a result set.
 	 * @return int
 	 */
@@ -372,7 +410,7 @@ class DibiFirebirdDriver extends DibiObject implements IDibiDriver, IDibiResultD
 	 */
 	public function seek($row)
 	{
-		throw new DibiDriverException("Firebird/Interbase do not support seek in result set.");
+		throw new NotSupportedException("Firebird/Interbase do not support seek in result set.");
 	}
 
 
@@ -434,7 +472,6 @@ class DibiFirebirdDriver extends DibiObject implements IDibiDriver, IDibiResultD
 				'view' => $row[1] === 'TRUE',
 			);
 		}
-		$res->free();
 		return $tables;
 	}
 
@@ -491,7 +528,6 @@ class DibiFirebirdDriver extends DibiObject implements IDibiDriver, IDibiResultD
 				'autoincrement' => FALSE,
 			);
 		}
-		$res->free();
 		return $columns;
 	}
 
@@ -527,7 +563,6 @@ class DibiFirebirdDriver extends DibiObject implements IDibiDriver, IDibiResultD
 			$indexes[$key]['table'] = $table;
 			$indexes[$key]['columns'][$row['FIELD_POSITION']] = $row['FIELD_NAME'];
 		}
-		$res->free();
 		return $indexes;
 	}
 
@@ -559,7 +594,6 @@ class DibiFirebirdDriver extends DibiObject implements IDibiDriver, IDibiResultD
 				'table' => $table,
 			);
 		}
-		$res->free();
 		return $keys;
 	}
 
@@ -583,7 +617,6 @@ class DibiFirebirdDriver extends DibiObject implements IDibiDriver, IDibiResultD
 		while ($row = $res->fetch(FALSE)) {
 			$indices[] = $row[0];
 		}
-		$res->free();
 		return $indices;
 	}
 
@@ -609,7 +642,6 @@ class DibiFirebirdDriver extends DibiObject implements IDibiDriver, IDibiResultD
 		while ($row = $res->fetch(FALSE)) {
 			$constraints[] = $row[0];
 		}
-		$res->free();
 		return $constraints;
 	}
 
@@ -660,7 +692,6 @@ class DibiFirebirdDriver extends DibiObject implements IDibiDriver, IDibiResultD
 				'enabled' => trim($row['TRIGGER_ENABLED']) === 'TRUE',
 			);
 		}
-		$res->free();
 		return $triggers;
 	}
 
@@ -684,7 +715,6 @@ class DibiFirebirdDriver extends DibiObject implements IDibiDriver, IDibiResultD
 		while ($row = $res->fetch(FALSE)) {
 			$triggers[] = $row[0];
 		}
-		$res->free();
 		return $triggers;
 	}
 
@@ -739,7 +769,6 @@ class DibiFirebirdDriver extends DibiObject implements IDibiDriver, IDibiResultD
 			$procedures[$key]['params'][$io][$num]['type'] = trim($row['FIELD_TYPE']);
 			$procedures[$key]['params'][$io][$num]['size'] = $row['FIELD_LENGTH'];
 		}
-		$res->free();
 		return $procedures;
 	}
 
@@ -759,7 +788,6 @@ class DibiFirebirdDriver extends DibiObject implements IDibiDriver, IDibiResultD
 		while ($row = $res->fetch(FALSE)) {
 			$procedures[] = $row[0];
 		}
-		$res->free();
 		return $procedures;
 	}
 
@@ -780,7 +808,6 @@ class DibiFirebirdDriver extends DibiObject implements IDibiDriver, IDibiResultD
 		while ($row = $res->fetch(FALSE)) {
 			$generators[] = $row[0];
 		}
-		$res->free();
 		return $generators;
 	}
 
@@ -801,7 +828,6 @@ class DibiFirebirdDriver extends DibiObject implements IDibiDriver, IDibiResultD
 		while ($row = $res->fetch(FALSE)) {
 			$functions[] = $row[0];
 		}
-		$res->free();
 		return $functions;
 	}
 

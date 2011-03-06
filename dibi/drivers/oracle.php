@@ -5,8 +5,9 @@
  *
  * Copyright (c) 2005, 2010 David Grudl (http://davidgrudl.com)
  *
- * This source file is subject to the "dibi license", and/or
- * GPL license. For more information please see http://dibiphp.com
+ * For the full copyright and license information, please view
+ * the file license.txt that was distributed with this source code.
+ *
  * @package    dibi\drivers
  */
 
@@ -44,12 +45,12 @@ class DibiOracleDriver extends DibiObject implements IDibiDriver, IDibiResultDri
 
 
 	/**
-	 * @throws DibiException
+	 * @throws NotSupportedException
 	 */
 	public function __construct()
 	{
 		if (!extension_loaded('oci8')) {
-			throw new DibiDriverException("PHP extension 'oci8' is not loaded.");
+			throw new NotSupportedException("PHP extension 'oci8' is not loaded.");
 		}
 	}
 
@@ -99,19 +100,20 @@ class DibiOracleDriver extends DibiObject implements IDibiDriver, IDibiResultDri
 	 */
 	public function query($sql)
 	{
-		$this->resultSet = oci_parse($this->connection, $sql);
-		if ($this->resultSet) {
-			oci_execute($this->resultSet, $this->autocommit ? OCI_COMMIT_ON_SUCCESS : OCI_DEFAULT);
-			$err = oci_error($this->resultSet);
+		$res = oci_parse($this->connection, $sql);
+		if ($res) {
+			oci_execute($res, $this->autocommit ? OCI_COMMIT_ON_SUCCESS : OCI_DEFAULT);
+			$err = oci_error($res);
 			if ($err) {
 				throw new DibiDriverException($err['message'], $err['code'], $sql);
+
+			} elseif (is_resource($res)) {
+				return $this->createResultDriver($res);
 			}
 		} else {
 			$err = oci_error($this->connection);
 			throw new DibiDriverException($err['message'], $err['code'], $sql);
 		}
-
-		return is_resource($this->resultSet) ? clone $this : NULL;
 	}
 
 
@@ -207,6 +209,20 @@ class DibiOracleDriver extends DibiObject implements IDibiDriver, IDibiResultDri
 
 
 
+	/**
+	 * Result set driver factory.
+	 * @param  resource
+	 * @return IDibiResultDriver
+	 */
+	public function createResultDriver($resource)
+	{
+		$res = clone $this;
+		$res->resultSet = $resource;
+		return $res;
+	}
+
+
+
 	/********************* SQL ****************d*g**/
 
 
@@ -296,6 +312,17 @@ class DibiOracleDriver extends DibiObject implements IDibiDriver, IDibiResultDri
 
 
 	/********************* result set ****************d*g**/
+
+
+
+	/**
+	 * Automatically frees the resources allocated for this result set.
+	 * @return void
+	 */
+	public function __destruct()
+	{
+		$this->resultSet && @$this->free();
+	}
 
 
 
@@ -398,7 +425,6 @@ class DibiOracleDriver extends DibiObject implements IDibiDriver, IDibiResultDri
 				);
 			}
 		}
-		$res->free();
 		return $tables;
 	}
 

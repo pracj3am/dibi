@@ -5,8 +5,9 @@
  *
  * Copyright (c) 2005, 2010 David Grudl (http://davidgrudl.com)
  *
- * This source file is subject to the "dibi license", and/or
- * GPL license. For more information please see http://dibiphp.com
+ * For the full copyright and license information, please view
+ * the file license.txt that was distributed with this source code.
+ *
  * @package    dibi\drivers
  */
 
@@ -51,12 +52,12 @@ class DibiSqliteDriver extends DibiObject implements IDibiDriver, IDibiResultDri
 
 
 	/**
-	 * @throws DibiException
+	 * @throws NotSupportedException
 	 */
 	public function __construct()
 	{
 		if (!extension_loaded('sqlite')) {
-			throw new DibiDriverException("PHP extension 'sqlite' is not loaded.");
+			throw new NotSupportedException("PHP extension 'sqlite' is not loaded.");
 		}
 	}
 
@@ -122,15 +123,16 @@ class DibiSqliteDriver extends DibiObject implements IDibiDriver, IDibiResultDri
 
 		DibiDriverException::tryError();
 		if ($this->buffered) {
-			$this->resultSet = sqlite_query($this->connection, $sql);
+			$res = sqlite_query($this->connection, $sql);
 		} else {
-			$this->resultSet = sqlite_unbuffered_query($this->connection, $sql);
+			$res = sqlite_unbuffered_query($this->connection, $sql);
 		}
 		if (DibiDriverException::catchError($msg)) {
 			throw new DibiDriverException($msg, sqlite_last_error($this->connection), $sql);
-		}
 
-		return is_resource($this->resultSet) ? clone $this : NULL;
+		} elseif (is_resource($res)) {
+			return $this->createResultDriver($res);
+		}
 	}
 
 
@@ -215,6 +217,20 @@ class DibiSqliteDriver extends DibiObject implements IDibiDriver, IDibiResultDri
 	public function getReflector()
 	{
 		return new DibiSqliteReflector($this);
+	}
+
+
+
+	/**
+	 * Result set driver factory.
+	 * @param  resource
+	 * @return IDibiResultDriver
+	 */
+	public function createResultDriver($resource)
+	{
+		$res = clone $this;
+		$res->resultSet = $resource;
+		return $res;
 	}
 
 
@@ -312,7 +328,7 @@ class DibiSqliteDriver extends DibiObject implements IDibiDriver, IDibiResultDri
 	public function getRowCount()
 	{
 		if (!$this->buffered) {
-			throw new DibiDriverException('Row count is not available for unbuffered queries.');
+			throw new NotSupportedException('Row count is not available for unbuffered queries.');
 		}
 		return sqlite_num_rows($this->resultSet);
 	}
@@ -352,7 +368,7 @@ class DibiSqliteDriver extends DibiObject implements IDibiDriver, IDibiResultDri
 	public function seek($row)
 	{
 		if (!$this->buffered) {
-			throw new DibiDriverException('Cannot seek an unbuffered result set.');
+			throw new NotSupportedException('Cannot seek an unbuffered result set.');
 		}
 		return sqlite_seek($this->resultSet, $row);
 	}

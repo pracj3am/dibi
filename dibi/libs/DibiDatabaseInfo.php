@@ -5,9 +5,10 @@
  *
  * Copyright (c) 2005, 2010 David Grudl (http://davidgrudl.com)
  *
- * This source file is subject to the "dibi license", and/or
- * GPL license. For more information please see http://dibiphp.com
- * @package    dibi
+ * For the full copyright and license information, please view
+ * the file license.txt that was distributed with this source code.
+ *
+ * @package    dibi\reflection
  */
 
 
@@ -84,7 +85,6 @@ class DibiDatabaseInfo extends DibiObject
 	 */
 	public function getTable($name)
 	{
-		$name = DibiTranslator::substitute($name);
 		$this->init();
 		$l = strtolower($name);
 		if (isset($this->tables[$l])) {
@@ -103,7 +103,6 @@ class DibiDatabaseInfo extends DibiObject
 	 */
 	public function hasTable($name)
 	{
-		$name = DibiTranslator::substitute($name);
 		$this->init();
 		return isset($this->tables[strtolower($name)]);
 	}
@@ -227,7 +226,6 @@ class DibiTableInfo extends DibiObject
 	 */
 	public function getColumn($name)
 	{
-		$name = DibiTranslator::substitute($name);
 		$this->initColumns();
 		$l = strtolower($name);
 		if (isset($this->columns[$l])) {
@@ -246,7 +244,6 @@ class DibiTableInfo extends DibiObject
 	 */
 	public function hasColumn($name)
 	{
-		$name = DibiTranslator::substitute($name);
 		$this->initColumns();
 		return isset($this->columns[strtolower($name)]);
 	}
@@ -397,7 +394,6 @@ class DibiResultInfo extends DibiObject
 	 */
 	public function getColumn($name)
 	{
-		$name = DibiTranslator::substitute($name);
 		$this->initColumns();
 		$l = strtolower($name);
 		if (isset($this->names[$l])) {
@@ -416,7 +412,6 @@ class DibiResultInfo extends DibiObject
 	 */
 	public function hasColumn($name)
 	{
-		$name = DibiTranslator::substitute($name);
 		$this->initColumns();
 		return isset($this->names[strtolower($name)]);
 	}
@@ -538,7 +533,7 @@ class DibiColumnInfo extends DibiObject
 	public function getType()
 	{
 		if (self::$types === NULL) {
-			self::$types = new DibiLazyStorage(array(__CLASS__, 'detectType'));
+			self::$types = new DibiHashMap(array(__CLASS__, 'detectType'));
 		}
 		return self::$types->{$this->info['nativetype']};
 	}
